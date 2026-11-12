@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="theme-color" content="#121212" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="1N1H Maquetas" />
@@ -13,13 +13,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
-      --bg: #0a0a0a;
-      --surface: #141414;
-      --surface-hover: #1f1f1f;
-      --text: #f5f5f5;
-      --text-muted: #737373;
-      --accent: #ffffff;
-      --border: #262626;
+      --bg: #121212;
+      --surface: #242424;
+      --surface-light: #2e2e2e;
+      --text: #ffffff;
+      --text-muted: #8e8e93;
+      --accent-yellow: #e5ff00;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -27,70 +26,118 @@
     body {
       background-color: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif;
       min-height: 100vh;
-      padding-bottom: 120px;
+      padding-bottom: 110px;
       display: flex;
       justify-content: center;
+      overflow-x: hidden;
     }
 
     .container {
       width: 100%;
-      max-width: 480px;
-      padding: 20px;
+      max-width: 460px;
+      padding: 16px 20px;
     }
 
-    /* Header / Nav */
+    /* Top Bar con botones circulares */
     .top-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 24px;
-      gap: 8px;
+      margin-bottom: 22px;
     }
 
-    .btn-ghost {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 8px 14px;
-      border-radius: 20px;
-      font-size: 13px;
-      cursor: pointer;
-      transition: 0.2s;
-      max-width: 180px;
-      text-overflow: ellipsis;
-    }
-    .btn-ghost:hover { background: var(--surface-hover); }
-
-    /* Portada Cuadrada estilo [untitled] */
-    .project-header {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      margin-bottom: 28px;
-    }
-
-    .cover-wrapper {
-      width: 220px;
-      height: 220px;
-      border-radius: 12px;
+    .circle-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
       background: var(--surface);
-      border: 1px solid var(--border);
-      overflow: hidden;
-      position: relative;
+      border: none;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
-      margin-bottom: 18px;
-      box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+      transition: background 0.15s, transform 0.1s;
+    }
+    .circle-btn:active { transform: scale(0.94); background: var(--surface-light); }
+    .circle-btn.active { background: #fff; color: #000; }
+
+    .top-right-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
     }
 
-    .cover-wrapper img {
+    /* Buscador desplegable */
+    .search-bar {
+      display: none;
+      margin-bottom: 16px;
+    }
+    .search-bar.open { display: block; }
+    .search-bar input {
+      width: 100%;
+      background: var(--surface);
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+    }
+
+    /* Portada con disco de vinilo asomando */
+    .cover-stage {
+      position: relative;
+      width: 265px;
+      height: 265px;
+      margin: 0 auto 24px;
+      display: flex;
+      align-items: center;
+    }
+
+    .vinyl-disc {
+      position: absolute;
+      right: -24px;
+      width: 245px;
+      height: 245px;
+      border-radius: 50%;
+      background: radial-gradient(circle at center,
+        #111 0%, #111 18%,
+        #4a4a4a 19%, #222 20%,
+        #383838 35%, #181818 50%,
+        #444 65%, #1c1c1c 80%,
+        #555 95%, #222 100%
+      );
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      z-index: 1;
+      transition: transform 0.6s ease;
+    }
+    .vinyl-disc::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(from 45deg, transparent 0deg, rgba(255,255,255,0.18) 40deg, transparent 90deg, rgba(255,255,255,0.12) 210deg, transparent 270deg);
+    }
+
+    .cover-box {
+      position: relative;
+      width: 265px;
+      height: 265px;
+      border-radius: 16px;
+      background: #000;
+      overflow: hidden;
+      z-index: 2;
+      box-shadow: 0 14px 34px rgba(0,0,0,0.65);
+      cursor: pointer;
+    }
+    .cover-box img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-
     .cover-placeholder {
       width: 100%;
       height: 100%;
@@ -100,228 +147,313 @@
       justify-content: center;
       color: var(--text-muted);
       font-size: 13px;
-      gap: 8px;
+      gap: 6px;
+      background: #1a1a1a;
     }
 
-    /* Inputs editables sin bordes */
-    .editable-title {
-      background: transparent;
-      border: none;
-      color: var(--text);
-      font-size: 22px;
-      font-weight: 700;
-      text-align: center;
-      width: 100%;
-      outline: none;
-      padding: 4px;
-      border-radius: 6px;
-    }
-    .editable-title:focus { background: var(--surface); }
-
-    .editable-artist {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-size: 14px;
-      text-align: center;
-      width: 100%;
-      outline: none;
-      margin-top: 2px;
-    }
-
-    /* Controles principales */
-    .actions-row {
+    /* Info del proyecto + botón circular blanco Play */
+    .project-meta-row {
       display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
       gap: 12px;
-      width: 100%;
-      margin-top: 20px;
     }
 
-    .btn-primary {
+    .project-titles {
       flex: 1;
-      background: var(--accent);
-      color: #000;
-      border: none;
-      padding: 12px;
-      border-radius: 99px;
-      font-weight: 600;
+      min-width: 0;
+    }
+
+    .project-title {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+
+    .project-subtitle {
       font-size: 14px;
-      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    .play-controls-cluster {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .big-play-btn {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: #ffffff;
+      color: #000000;
+      border: none;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      transition: 0.2s;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: transform 0.1s;
     }
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+    .big-play-btn:active { transform: scale(0.93); }
 
-    .btn-shuffle {
-      flex: 1;
+    /* Botón "+ Add tracks" */
+    .add-tracks-btn {
+      width: 100%;
       background: var(--surface);
       color: var(--text);
-      border: 1px solid var(--border);
-      padding: 12px;
-      border-radius: 99px;
+      border: none;
+      border-radius: 12px;
+      padding: 13px;
+      font-size: 15px;
       font-weight: 600;
-      font-size: 14px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
+      margin-bottom: 18px;
+      transition: background 0.15s;
     }
-    .btn-shuffle.active {
-      border-color: #fff;
-      background: #222;
-    }
+    .add-tracks-btn:active { background: var(--surface-light); }
+    .add-tracks-btn:disabled { opacity: 0.6; cursor: wait; }
 
     /* Lista de Tracks */
     .track-list {
       display: flex;
       flex-direction: column;
-      gap: 4px;
     }
 
-    .track-item {
+    .track-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 12px 10px;
-      border-radius: 8px;
-      transition: 0.15s;
-      gap: 10px;
+      padding: 11px 4px;
+      gap: 14px;
+      cursor: pointer;
+      border-radius: 10px;
+      transition: background 0.15s;
     }
-    .track-item:hover { background: var(--surface); }
-    .track-item.playing { background: var(--surface-hover); }
+    .track-row:active { background: rgba(255,255,255,0.05); }
 
-    .track-left {
+    .track-index {
+      width: 24px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
       display: flex;
       align-items: center;
-      gap: 12px;
+      justify-content: center;
+    }
+
+    /* Barras de ecualizador animadas cuando suena */
+    .eq-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 14px;
+    }
+    .eq-bars span {
+      width: 2.5px;
+      background: #fff;
+      border-radius: 2px;
+      animation: eq 0.8s infinite ease-in-out;
+    }
+    .eq-bars span:nth-child(1) { height: 6px; animation-delay: 0s; }
+    .eq-bars span:nth-child(2) { height: 14px; animation-delay: 0.2s; }
+    .eq-bars span:nth-child(3) { height: 9px; animation-delay: 0.4s; }
+    .eq-bars span:nth-child(4) { height: 12px; animation-delay: 0.1s; }
+    .eq-bars.paused span { animation: none; height: 5px; }
+
+    @keyframes eq {
+      0%, 100% { height: 4px; }
+      50% { height: 14px; }
+    }
+
+    .track-info {
       flex: 1;
       min-width: 0;
     }
 
-    .track-num {
-      color: var(--text-muted);
-      font-size: 13px;
-      width: 22px;
-      text-align: center;
-      cursor: pointer;
-    }
-    .track-item.playing .track-num { color: #fff; font-weight: bold; }
-
-    .track-name-input {
-      background: transparent;
-      border: none;
-      color: var(--text);
+    .track-title {
       font-size: 15px;
-      width: 100%;
-      outline: none;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
       text-overflow: ellipsis;
+      margin-bottom: 3px;
     }
-    .track-item.playing .track-name-input { font-weight: 600; }
-
-    .track-actions {
-      display: flex;
-      gap: 8px;
+    .track-row.active .track-title {
+      font-weight: 700;
     }
 
-    .icon-btn {
+    .track-date {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .track-dots-btn {
       background: none;
       border: none;
       color: var(--text-muted);
+      padding: 8px;
       cursor: pointer;
-      padding: 4px;
-      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
-    .icon-btn:hover { color: var(--text); }
+    .track-dots-btn:active { color: #fff; }
 
-    /* Botón Subida Directa */
-    .upload-box {
-      margin-top: 24px;
-    }
-
-    /* Mini Reproductor Fijo Abajo */
-    .player-bar {
+    /* Cápsula Reproductor Flotante Inferior */
+    .floating-player {
       position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: rgba(18, 18, 18, 0.95);
-      backdrop-filter: blur(12px);
-      border-top: 1px solid var(--border);
-      padding: 12px 20px 22px;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 28px);
+      max-width: 440px;
+      background: rgba(34, 34, 34, 0.94);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 32px;
+      padding: 8px 14px 8px 8px;
       display: none;
-      flex-direction: column;
-      align-items: center;
-      z-index: 100;
-    }
-    .player-bar.visible { display: flex; }
-
-    .player-inner {
-      width: 100%;
-      max-width: 480px;
-    }
-
-    .progress-container {
-      width: 100%;
-      height: 4px;
-      background: #333;
-      border-radius: 2px;
-      margin-bottom: 12px;
-      cursor: pointer;
-      position: relative;
-    }
-    .progress-fill {
-      height: 100%;
-      background: #fff;
-      width: 0%;
-      border-radius: 2px;
-    }
-
-    .player-controls {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .now-playing-info {
-      display: flex;
       align-items: center;
       gap: 10px;
-      max-width: 60%;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.75);
+      z-index: 90;
     }
-    .now-playing-info img {
-      width: 40px;
-      height: 40px;
-      border-radius: 6px;
+    .floating-player.visible { display: flex; }
+
+    .mini-disc {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
       object-fit: cover;
-      background: #222;
+      background: #000;
+      flex-shrink: 0;
+      cursor: pointer;
     }
-    .now-playing-title {
-      font-size: 14px;
+    .mini-disc.spinning {
+      animation: spin 10s linear infinite;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    .mini-meta {
+      width: 115px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .mini-title {
+      font-size: 13px;
       font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .mini-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
-    .transport-btns {
+    /* Waveform interactivo amarillo */
+    .waveform-wrap {
+      flex: 1;
+      height: 30px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 2px;
+      cursor: pointer;
+      position: relative;
+      touch-action: none;
+      padding: 4px 0;
     }
-    .transport-btns button {
+    .wave-bar {
+      flex: 1;
+      background: #555;
+      border-radius: 2px;
+      transition: background 0.1s;
+    }
+    .wave-bar.played {
+      background: var(--accent-yellow);
+    }
+
+    .mini-next-btn {
       background: none;
       border: none;
+      color: var(--text);
+      padding: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    /* Modal / Action Sheet estilo iOS */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 200;
+    }
+    .modal-backdrop.open { display: flex; }
+
+    .action-sheet {
+      width: 100%;
+      max-width: 460px;
+      background: #1e1e1e;
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
+      padding: 16px 20px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      background: #444;
+      border-radius: 2px;
+      margin: 0 auto 10px;
+    }
+    .sheet-header {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sheet-btn {
+      width: 100%;
+      background: var(--surface);
       color: #fff;
-      font-size: 18px;
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 500;
+      text-align: left;
       cursor: pointer;
     }
+    .sheet-btn.danger { color: #ff453a; }
+    .sheet-btn:active { background: var(--surface-light); }
   </style>
 </head>
 <body>
@@ -329,115 +461,175 @@
 <div class="container">
   <!-- Barra superior -->
   <div class="top-bar">
-    <select id="projectSelect" class="btn-ghost" onchange="loadProject(this.value)"></select>
-    <div style="display:flex; gap:8px;">
-      <button class="btn-ghost" onclick="createNewProject()">+ Proyecto</button>
-      <button class="btn-ghost" onclick="shareProject()">Compartir</button>
+    <button class="circle-btn" onclick="openProjectsSheet()" title="Cambiar proyecto">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+
+    <div class="top-right-group">
+      <button class="circle-btn" onclick="shareProject()" title="Copiar link">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+      </button>
+      <button class="circle-btn" id="searchToggleBtn" onclick="toggleSearch()" title="Buscar">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </button>
+      <button class="circle-btn" onclick="openProjectMenu()" title="Opciones del proyecto">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+      </button>
     </div>
   </div>
 
-  <!-- Cabecera Proyecto -->
-  <div class="project-header">
-    <div class="cover-wrapper" onclick="document.getElementById('coverInput').click()">
+  <!-- Buscador -->
+  <div class="search-bar" id="searchBar">
+    <input type="text" id="searchInput" placeholder="Buscar track en este proyecto..." oninput="renderTracks()" />
+  </div>
+
+  <!-- Portada cuadrada + Vinilo -->
+  <div class="cover-stage">
+    <div class="vinyl-disc"></div>
+    <div class="cover-box" onclick="document.getElementById('coverInput').click()">
       <img id="coverImg" style="display:none;" />
       <div id="coverPlaceholder" class="cover-placeholder">
         <span>+ Portada</span>
-        <span style="font-size:11px;">(1:1 Cuadrada)</span>
       </div>
     </div>
     <input type="file" id="coverInput" accept="image/*" style="display:none;" onchange="uploadCover(event)" />
+  </div>
 
-    <input type="text" id="projectTitle" class="editable-title" value="Cargando..." onchange="updateProjectMeta()" />
-    <input type="text" id="projectArtist" class="editable-artist" value="Artista" onchange="updateProjectMeta()" />
-
-    <div class="actions-row">
-      <button class="btn-primary" onclick="playFromIndex(0)">▶ Play</button>
-      <button class="btn-shuffle" id="shuffleBtn" onclick="toggleShuffle()">🔀 Aleatorio</button>
+  <!-- Título, subtítulo y botón Play blanco -->
+  <div class="project-meta-row">
+    <div class="project-titles">
+      <div class="project-title" id="projectTitleDisplay">Cargando...</div>
+      <div class="project-subtitle" id="projectSubtitleDisplay">0 tracks</div>
+    </div>
+    <div class="play-controls-cluster">
+      <button class="circle-btn" id="shuffleBtn" onclick="toggleShuffle()" title="Aleatorio">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+      </button>
+      <button class="big-play-btn" id="mainPlayBtn" onclick="handleMainPlay()">
+        <svg id="mainPlayIcon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+      </button>
     </div>
   </div>
+
+  <!-- Botón "+ Add tracks" -->
+  <input 
+    type="file" 
+    id="audioFileInput" 
+    accept=".mp3,.wav,audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/wave" 
+    multiple 
+    style="display:none;" 
+    onchange="uploadFilesFromDevice(event)" 
+  />
+  <button class="add-tracks-btn" id="uploadBtn" onclick="document.getElementById('audioFileInput').click()">
+    <span>+ Add tracks</span>
+  </button>
 
   <!-- Lista de canciones -->
   <div id="trackList" class="track-list"></div>
-
-  <!-- Subida directa desde el dispositivo (solo MP3 y WAV) -->
-  <div class="upload-box">
-    <input 
-      type="file" 
-      id="audioFileInput" 
-      accept=".mp3,.wav,audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/wave" 
-      multiple 
-      style="display:none;" 
-      onchange="uploadFilesFromDevice(event)" 
-    />
-    <button class="btn-primary" style="width:100%;" id="uploadBtn" onclick="document.getElementById('audioFileInput').click()">
-      + Subir MP3 o WAV
-    </button>
-  </div>
 </div>
 
-<!-- Reproductor Inferior -->
-<div class="player-bar" id="playerBar">
-  <div class="player-inner">
-    <div class="progress-container" onclick="seekAudio(event)">
-      <div class="progress-fill" id="progressFill"></div>
-    </div>
-    <div class="player-controls">
-      <div class="now-playing-info">
-        <img id="playerCover" src="" />
-        <div class="now-playing-title" id="playerTitle">Seleccioná un track</div>
-      </div>
-      <div class="transport-btns">
-        <button onclick="prevTrack()">⏮</button>
-        <button id="playPauseBtn" onclick="togglePlay()">⏸</button>
-        <button onclick="nextTrack()">⏭</button>
-      </div>
-    </div>
+<!-- Reproductor Flotante Inferior -->
+<div class="floating-player" id="floatingPlayer">
+  <img id="miniCover" class="mini-disc" src="icon.png" onclick="togglePlay()" />
+  <div class="mini-meta" onclick="togglePlay()">
+    <div class="mini-title" id="miniTitle">Track</div>
+    <div class="mini-sub" id="miniSub">Proyecto</div>
   </div>
+  <div class="waveform-wrap" id="waveformWrap"></div>
+  <button class="mini-next-btn" onclick="nextTrack()" title="Siguiente">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+  </button>
 </div>
 
-<audio id="audioEl" crossorigin="anonymous"></audio>
+<!-- Action Sheet (Menú de 3 puntitos) -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)">
+  <div class="action-sheet" id="actionSheet" onclick="event.stopPropagation()"></div>
+</div>
+
+<audio id="audioEl"></audio>
 
 <script>
-  // ==========================================
-  // CREDENCIALES CONFIGURADAS
-  // ==========================================
   const SUPABASE_URL = 'https://pmxtljgnnvzxyanesvqu.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_CkTeNzIdf8c3Du2EiguLZg_cgdCD8Px';
   const GOOGLE_DRIVE_API_KEY = 'AIzaSyCNouqYL6YaZ044Lqp290bTqIcUXKEW8r8';
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzx5cQTCOY-UGcKKj8m8v-Zn_KaZfFDM9gXWY5aNbRbHhyHkhnbsIGUf-EUukKccnbuGw/exec';
-  // ==========================================
 
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const audio = document.getElementById('audioEl');
 
+  let allProjects = [];
   let currentProject = null;
   let tracks = [];
   let currentIndex = -1;
   let isShuffle = false;
+  let isLoadingTrack = false;
+
+  // Caché en memoria de Blobs para que adelantar/atrasar sea instantáneo
+  const audioBlobCache = {};
+
+  // Generar barras de forma de onda decorativas estilo [untitled]
+  const waveHeights = [25, 45, 70, 40, 85, 60, 30, 90, 100, 65, 50, 80, 95, 45, 60, 75, 40, 85, 55, 35, 70, 90, 50, 65, 80, 40, 60, 30];
+  function buildWaveform() {
+    const wrap = document.getElementById('waveformWrap');
+    wrap.innerHTML = '';
+    waveHeights.forEach((h) => {
+      const bar = document.createElement('div');
+      bar.className = 'wave-bar';
+      bar.style.height = h + '%';
+      wrap.appendChild(bar);
+    });
+  }
+  buildWaveform();
+
+  // Permitir tocar o arrastrar sobre la forma de onda para adelantar/atrasar
+  const waveWrap = document.getElementById('waveformWrap');
+  let isSeeking = false;
+
+  function applySeekFromClientX(clientX) {
+    if (!audio.duration || isNaN(audio.duration)) return;
+    const rect = waveWrap.getBoundingClientRect();
+    let pct = (clientX - rect.left) / rect.width;
+    pct = Math.max(0, Math.min(1, pct));
+    audio.currentTime = pct * audio.duration;
+    updateWaveformProgress(pct);
+  }
+
+  waveWrap.addEventListener('pointerdown', (e) => {
+    isSeeking = true;
+    waveWrap.setPointerCapture(e.pointerId);
+    applySeekFromClientX(e.clientX);
+  });
+  waveWrap.addEventListener('pointermove', (e) => {
+    if (isSeeking) applySeekFromClientX(e.clientX);
+  });
+  waveWrap.addEventListener('pointerup', (e) => {
+    if (isSeeking) {
+      isSeeking = false;
+      waveWrap.releasePointerCapture(e.pointerId);
+    }
+  });
+
+  function updateWaveformProgress(pct) {
+    const bars = document.querySelectorAll('.wave-bar');
+    const activeCount = Math.floor(pct * bars.length);
+    bars.forEach((b, i) => {
+      b.classList.toggle('played', i <= activeCount);
+    });
+  }
 
   async function init() {
     const urlParams = new URLSearchParams(window.location.search);
     const sharedProjectId = urlParams.get('p');
 
     const { data: projects } = await db.from('projects').select('*').order('created_at', { ascending: false });
+    allProjects = projects || [];
 
-    const select = document.getElementById('projectSelect');
-    select.innerHTML = '';
-
-    if (!projects || projects.length === 0) {
-      await createNewProject('Maquetas 2026');
+    if (allProjects.length === 0) {
+      await createNewProject('Maquetas 1N1H');
       return;
     }
 
-    projects.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.title;
-      select.appendChild(opt);
-    });
-
-    const initialId = sharedProjectId || projects[0].id;
-    select.value = initialId;
+    const initialId = sharedProjectId || allProjects[0].id;
     await loadProject(initialId);
   }
 
@@ -446,8 +638,7 @@
     if (!project) return;
     currentProject = project;
 
-    document.getElementById('projectTitle').value = project.title;
-    document.getElementById('projectArtist').value = project.artist || '';
+    document.getElementById('projectTitleDisplay').textContent = project.title;
 
     const coverImg = document.getElementById('coverImg');
     const placeholder = document.getElementById('coverPlaceholder');
@@ -462,31 +653,272 @@
 
     const { data: trackData } = await db.from('tracks').select('*').eq('project_id', projectId).order('track_order', { ascending: true });
     tracks = trackData || [];
+
+    const artistText = project.artist ? `${project.artist} · ` : '';
+    document.getElementById('projectSubtitleDisplay').textContent = `${artistText}${tracks.length} tracks`;
+
     renderTracks();
+  }
+
+  function formatRelativeDate(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    const diffMs = Date.now() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 60) return `${Math.max(1, diffMins)}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   }
 
   function renderTracks() {
     const list = document.getElementById('trackList');
+    const filter = document.getElementById('searchInput').value.toLowerCase().trim();
     list.innerHTML = '';
 
     tracks.forEach((t, idx) => {
-      const div = document.createElement('div');
-      div.className = `track-item ${idx === currentIndex ? 'playing' : ''}`;
-      div.innerHTML = `
-        <div class="track-left">
-          <span class="track-num" onclick="playFromIndex(${idx})">${idx === currentIndex && !audio.paused ? '🔊' : idx + 1}</span>
-          <input class="track-name-input" value="${t.title}" onchange="renameTrack('${t.id}', this.value)" />
+      if (filter && !t.title.toLowerCase().includes(filter)) return;
+
+      const isCurrent = idx === currentIndex;
+      const isPaused = audio.paused;
+
+      const row = document.createElement('div');
+      row.className = `track-row ${isCurrent ? 'active' : ''}`;
+      row.onclick = () => playFromIndex(idx);
+
+      const indexHtml = isCurrent
+        ? `<div class="eq-bars ${isPaused ? 'paused' : ''}"><span></span><span></span><span></span><span></span></div>`
+        : `${idx + 1}`;
+
+      row.innerHTML = `
+        <div class="track-index">${indexHtml}</div>
+        <div class="track-info">
+          <div class="track-title">${escapeHtml(t.title)}</div>
+          <div class="track-date">${isLoadingTrack && isCurrent ? 'Cargando audio...' : formatRelativeDate(t.created_at)}</div>
         </div>
-        <div class="track-actions">
-          <button class="icon-btn" onclick="playFromIndex(${idx})">▶</button>
-          <button class="icon-btn" onclick="deleteTrack('${t.id}')">✕</button>
-        </div>
+        <button class="track-dots-btn" onclick="event.stopPropagation(); openTrackMenu(${idx})">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+        </button>
       `;
-      list.appendChild(div);
+      list.appendChild(row);
     });
   }
 
-  // Subida directa desde el celular/PC a Google Drive vía Apps Script
+  function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  }
+
+  // Reproducción con descarga a Blob en caché para Seek (adelantar/atrasar) instantáneo
+  async function playFromIndex(idx) {
+    if (tracks.length === 0) return;
+
+    if (idx === currentIndex && audio.src) {
+      togglePlay();
+      return;
+    }
+
+    currentIndex = idx;
+    const track = tracks[currentIndex];
+    isLoadingTrack = true;
+
+    document.getElementById('floatingPlayer').classList.add('visible');
+    document.getElementById('miniTitle').textContent = track.title;
+    document.getElementById('miniSub').textContent = `${currentProject.title}${currentProject.artist ? ' · ' + currentProject.artist : ''}`;
+    document.getElementById('miniCover').src = currentProject.cover_url || 'icon.png';
+    updateWaveformProgress(0);
+    renderTracks();
+
+    try {
+      let blobUrl = audioBlobCache[track.drive_file_id];
+      if (!blobUrl) {
+        const driveUrl = `https://www.googleapis.com/drive/v3/files/${track.drive_file_id}?alt=media&key=${GOOGLE_DRIVE_API_KEY}`;
+        const res = await fetch(driveUrl);
+        if (!res.ok) throw new Error('No se pudo descargar el audio desde Drive');
+        const blob = await res.blob();
+        blobUrl = URL.createObjectURL(blob);
+        audioBlobCache[track.drive_file_id] = blobUrl;
+      }
+
+      isLoadingTrack = false;
+      audio.src = blobUrl;
+      await audio.play();
+      syncPlayIcons();
+      renderTracks();
+      updateMediaSession(track);
+    } catch (err) {
+      isLoadingTrack = false;
+      renderTracks();
+      alert('Error al cargar el track. Verificá tu conexión.');
+    }
+  }
+
+  function handleMainPlay() {
+    if (tracks.length === 0) return;
+    if (currentIndex === -1) {
+      if (isShuffle) nextTrack();
+      else playFromIndex(0);
+    } else {
+      togglePlay();
+    }
+  }
+
+  function togglePlay() {
+    if (!audio.src) return;
+    if (audio.paused) {
+      audio.play();
+    } else {
+      audio.pause();
+    }
+    syncPlayIcons();
+    renderTracks();
+  }
+
+  function syncPlayIcons() {
+    const isPlaying = !audio.paused;
+    document.getElementById('mainPlayIcon').innerHTML = isPlaying
+      ? '<rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect>'
+      : '<polygon points="6 4 20 12 6 20 6 4"></polygon>';
+    document.getElementById('miniCover').classList.toggle('spinning', isPlaying);
+  }
+
+  function toggleShuffle() {
+    isShuffle = !isShuffle;
+    document.getElementById('shuffleBtn').classList.toggle('active', isShuffle);
+    if (isShuffle && audio.paused && tracks.length > 0) {
+      nextTrack();
+    }
+  }
+
+  function nextTrack() {
+    if (tracks.length === 0) return;
+    if (isShuffle && tracks.length > 1) {
+      let rand;
+      do {
+        rand = Math.floor(Math.random() * tracks.length);
+      } while (rand === currentIndex);
+      playFromIndex(rand);
+    } else {
+      playFromIndex((currentIndex + 1) % tracks.length);
+    }
+  }
+
+  function prevTrack() {
+    if (tracks.length === 0) return;
+    if (audio.currentTime > 3) {
+      audio.currentTime = 0;
+    } else {
+      playFromIndex((currentIndex - 1 + tracks.length) % tracks.length);
+    }
+  }
+
+  audio.addEventListener('ended', nextTrack);
+  audio.addEventListener('play', syncPlayIcons);
+  audio.addEventListener('pause', syncPlayIcons);
+
+  audio.addEventListener('timeupdate', () => {
+    if (!audio.duration || isSeeking) return;
+    const pct = audio.currentTime / audio.duration;
+    updateWaveformProgress(pct);
+  });
+
+  // Menús estilo Action Sheet (3 puntitos)
+  function openModal(html) {
+    document.getElementById('actionSheet').innerHTML = `<div class="sheet-handle"></div>` + html;
+    document.getElementById('modalBackdrop').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modalBackdrop').classList.remove('open');
+  }
+
+  function openTrackMenu(idx) {
+    const track = tracks[idx];
+    openModal(`
+      <div class="sheet-header">${escapeHtml(track.title)}</div>
+      <button class="sheet-btn" onclick="promptRenameTrack('${track.id}', '${escapeHtml(track.title)}')">Renombrar track</button>
+      <button class="sheet-btn danger" onclick="deleteTrack('${track.id}')">Eliminar del proyecto</button>
+    `);
+  }
+
+  async function promptRenameTrack(trackId, oldTitle) {
+    closeModal();
+    const newTitle = prompt('Nuevo nombre del track:', oldTitle);
+    if (!newTitle || !newTitle.trim()) return;
+    await db.from('tracks').update({ title: newTitle.trim() }).eq('id', trackId);
+    await loadProject(currentProject.id);
+    if (currentIndex !== -1 && tracks[currentIndex]?.id === trackId) {
+      document.getElementById('miniTitle').textContent = newTitle.trim();
+    }
+  }
+
+  async function deleteTrack(trackId) {
+    closeModal();
+    if (!confirm('¿Eliminar este track del proyecto?')) return;
+    await db.from('tracks').delete().eq('id', trackId);
+    await loadProject(currentProject.id);
+  }
+
+  function openProjectMenu() {
+    openModal(`
+      <div class="sheet-header">${escapeHtml(currentProject.title)}</div>
+      <button class="sheet-btn" onclick="promptRenameProject()">Cambiar nombre del proyecto</button>
+      <button class="sheet-btn" onclick="promptChangeArtist()">Cambiar nombre de artista</button>
+      <button class="sheet-btn" onclick="closeModal(); document.getElementById('coverInput').click()">Cambiar portada</button>
+    `);
+  }
+
+  async function promptRenameProject() {
+    closeModal();
+    const title = prompt('Nombre del proyecto:', currentProject.title);
+    if (!title || !title.trim()) return;
+    await db.from('projects').update({ title: title.trim() }).eq('id', currentProject.id);
+    await init();
+  }
+
+  async function promptChangeArtist() {
+    closeModal();
+    const artist = prompt('Nombre del artista:', currentProject.artist || '');
+    if (artist === null) return;
+    await db.from('projects').update({ artist: artist.trim() }).eq('id', currentProject.id);
+    await loadProject(currentProject.id);
+  }
+
+  function openProjectsSheet() {
+    let itemsHtml = `<div class="sheet-header">Tus Proyectos</div>`;
+    allProjects.forEach(p => {
+      const mark = p.id === currentProject.id ? ' ✓' : '';
+      itemsHtml += `<button class="sheet-btn" onclick="closeModal(); selectProject('${p.id}')">${escapeHtml(p.title)}${mark}</button>`;
+    });
+    itemsHtml += `<button class="sheet-btn" style="text-align:center; font-weight:700; margin-top:4px;" onclick="closeModal(); createNewProject()">+ Nuevo Proyecto</button>`;
+    openModal(itemsHtml);
+  }
+
+  async function selectProject(id) {
+    window.history.replaceState({}, '', `?p=${id}`);
+    await loadProject(id);
+  }
+
+  async function createNewProject(defaultName) {
+    const title = defaultName || prompt('Nombre del nuevo proyecto:');
+    if (!title) return;
+    const { data } = await db.from('projects').insert({ title }).select().single();
+    if (data) {
+      window.history.replaceState({}, '', `?p=${data.id}`);
+      await init();
+    }
+  }
+
+  function toggleSearch() {
+    const bar = document.getElementById('searchBar');
+    bar.classList.toggle('open');
+    if (bar.classList.contains('open')) {
+      document.getElementById('searchInput').focus();
+    } else {
+      document.getElementById('searchInput').value = '';
+      renderTracks();
+    }
+  }
+
   async function uploadFilesFromDevice(event) {
     const files = Array.from(event.target.files);
     if (!files.length || !currentProject) return;
@@ -499,7 +931,7 @@
       const ext = file.name.split('.').pop().toLowerCase();
 
       if (ext !== 'mp3' && ext !== 'wav') {
-        alert(`El archivo "${file.name}" no es MP3 ni WAV y fue omitido.`);
+        alert(`El archivo "${file.name}" no es MP3 ni WAV.`);
         continue;
       }
 
@@ -537,44 +969,14 @@
           alert('Error subiendo ' + file.name + ': ' + result.message);
         }
       } catch (err) {
-        alert('Error de conexión subiendo ' + file.name + ' (verificá que el WAV no supere los 35 MB).');
+        alert('Error de conexión subiendo ' + file.name);
       }
     }
 
     btn.disabled = false;
-    btn.textContent = '+ Subir MP3 o WAV';
+    btn.textContent = '+ Add tracks';
     event.target.value = '';
     await loadProject(currentProject.id);
-  }
-
-  async function renameTrack(trackId, newTitle) {
-    if (!newTitle.trim()) return;
-    await db.from('tracks').update({ title: newTitle.trim() }).eq('id', trackId);
-  }
-
-  async function deleteTrack(trackId) {
-    if (!confirm('¿Quitar este track de la playlist?')) return;
-    await db.from('tracks').delete().eq('id', trackId);
-    await loadProject(currentProject.id);
-  }
-
-  async function updateProjectMeta() {
-    const title = document.getElementById('projectTitle').value.trim();
-    const artist = document.getElementById('projectArtist').value.trim();
-    if (!title) return;
-    await db.from('projects').update({ title, artist }).eq('id', currentProject.id);
-    const select = document.getElementById('projectSelect');
-    select.options[select.selectedIndex].textContent = title;
-  }
-
-  async function createNewProject(defaultName) {
-    const title = defaultName || prompt('Nombre del nuevo proyecto:');
-    if (!title) return;
-    const { data } = await db.from('projects').insert({ title }).select().single();
-    if (data) {
-      window.history.replaceState({}, '', `?p=${data.id}`);
-      await init();
-    }
   }
 
   async function uploadCover(event) {
@@ -593,84 +995,11 @@
     await loadProject(currentProject.id);
   }
 
-  function playFromIndex(idx) {
-    if (tracks.length === 0) return;
-    currentIndex = idx;
-    const track = tracks[currentIndex];
-
-    audio.src = `https://www.googleapis.com/drive/v3/files/${track.drive_file_id}?alt=media&key=${GOOGLE_DRIVE_API_KEY}`;
-    audio.play();
-
-    document.getElementById('playerBar').classList.add('visible');
-    document.getElementById('playerTitle').textContent = track.title;
-    document.getElementById('playerCover').src = currentProject.cover_url || '';
-    document.getElementById('playPauseBtn').textContent = '⏸';
-    renderTracks();
-    updateMediaSession(track);
-  }
-
-  function togglePlay() {
-    if (audio.paused) {
-      audio.play();
-      document.getElementById('playPauseBtn').textContent = '⏸';
-    } else {
-      audio.pause();
-      document.getElementById('playPauseBtn').textContent = '▶';
-    }
-    renderTracks();
-  }
-
-  function toggleShuffle() {
-    isShuffle = !isShuffle;
-    const btn = document.getElementById('shuffleBtn');
-    btn.classList.toggle('active', isShuffle);
-    if (isShuffle && audio.paused && tracks.length > 0) {
-      nextTrack();
-    }
-  }
-
-  function nextTrack() {
-    if (tracks.length === 0) return;
-    if (isShuffle && tracks.length > 1) {
-      let rand;
-      do {
-        rand = Math.floor(Math.random() * tracks.length);
-      } while (rand === currentIndex);
-      playFromIndex(rand);
-    } else {
-      playFromIndex((currentIndex + 1) % tracks.length);
-    }
-  }
-
-  function prevTrack() {
-    if (tracks.length === 0) return;
-    if (audio.currentTime > 3) {
-      audio.currentTime = 0;
-    } else {
-      playFromIndex((currentIndex - 1 + tracks.length) % tracks.length);
-    }
-  }
-
-  audio.addEventListener('ended', nextTrack);
-
-  audio.addEventListener('timeupdate', () => {
-    if (!audio.duration) return;
-    const pct = (audio.currentTime / audio.duration) * 100;
-    document.getElementById('progressFill').style.width = pct + '%';
-  });
-
-  function seekAudio(e) {
-    if (!audio.duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
-    audio.currentTime = pct * audio.duration;
-  }
-
   function updateMediaSession(track) {
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.title,
-        artist: currentProject.artist || 'Maqueta',
+        artist: currentProject.artist || '1N1H',
         album: currentProject.title,
         artwork: currentProject.cover_url ? [{ src: currentProject.cover_url, sizes: '512x512', type: 'image/jpeg' }] : []
       });
@@ -684,7 +1013,7 @@
   function shareProject() {
     const url = `${window.location.origin}${window.location.pathname}?p=${currentProject.id}`;
     navigator.clipboard.writeText(url);
-    alert('Link copiado para compartir con tus amigos:\n' + url);
+    alert('Link copiado:\n' + url);
   }
 
   init();
