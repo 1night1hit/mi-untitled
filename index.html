@@ -706,18 +706,57 @@
     return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   }
 
-  async function playFromIndex(idx) {
+async function playFromIndex(idx) {
     if (tracks.length === 0) return;
 
-    if (idx === currentIndex && audio.src && !isLoadingTrack) {
+    if (idx === currentIndex && audio.src) {
       audio.currentTime = 0;
-      await audio.play();
+      audio.play().catch(() => {});
       updateWaveformProgress(0);
       updatePositionState();
       syncPlayIcons();
       renderTracks();
       return;
     }
+
+    currentIndex = idx;
+    const track = tracks[currentIndex];
+    isLoadingTrack = true;
+
+    document.getElementById('floatingPlayer').classList.add('visible');
+    document.getElementById('miniTitle').textContent = track.title;
+    document.getElementById('miniSub').textContent = `${currentProject.title}${currentProject.artist ? ' · ' + currentProject.artist : ''}`;
+    document.getElementById('miniCover').src = currentProject.cover_url || 'icon.png';
+    updateWaveformProgress(0);
+    renderTracks();
+
+    // Streaming directo desde Google Drive (arranca al instante sin descargar el WAV entero)
+    const driveUrl = `https://www.googleapis.com/drive/v3/files/${track.drive_file_id}?alt=media&key=${GOOGLE_DRIVE_API_KEY}`;
+    audio.src = driveUrl;
+    audio.load();
+
+    audio.oncanplay = () => {
+      if (isLoadingTrack) {
+        isLoadingTrack = false;
+        renderTracks();
+      }
+    };
+
+    try {
+      await audio.play();
+      isLoadingTrack = false;
+      syncPlayIcons();
+      renderTracks();
+      updateMediaSession(track);
+      updatePositionState();
+    } catch (err) {
+      // Ignora interrupciones si el usuario cambió rápido de canción
+      if (err.name !== 'AbortError') {
+        isLoadingTrack = false;
+        renderTracks();
+      }
+    }
+  }
 
     currentIndex = idx;
     const track = tracks[currentIndex];
