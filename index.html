@@ -15,21 +15,21 @@
     :root {
       --bg: #121212;
       --surface: #242424;
-      --surface-light: #2e2e2e;
+      --surface-light: #2f2f2f;
       --text: #ffffff;
       --text-muted: #8e8e93;
       --accent-yellow: #e5ff00;
       --accent-green: #1db954;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
 
     body {
       background-color: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif;
       min-height: 100vh;
-      padding-bottom: 110px;
+      padding-bottom: 125px;
       display: flex;
       justify-content: center;
       overflow-x: hidden;
@@ -61,10 +61,27 @@
       justify-content: center;
       cursor: pointer;
       transition: background 0.15s, transform 0.1s;
+      position: relative;
     }
-    .circle-btn:active { transform: scale(0.94); background: var(--surface-light); }
-    .circle-btn.active { background: #fff; color: #000; }
-    .circle-btn.downloaded { background: rgba(29, 185, 84, 0.18); color: var(--accent-green); }
+    .circle-btn:active { transform: scale(0.93); background: var(--surface-light); }
+    .circle-btn.active { background: #ffffff; color: #000000; }
+    .circle-btn.downloaded { background: rgba(29, 185, 84, 0.2); color: var(--accent-green); }
+
+    .badge-one {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      font-size: 9px;
+      font-weight: 800;
+      background: #000;
+      color: #fff;
+      border-radius: 50%;
+      width: 12px;
+      height: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
     .top-right-group {
       display: flex;
@@ -81,18 +98,20 @@
     .search-bar input {
       width: 100%;
       background: var(--surface);
-      border: none;
+      border: 1px solid #333;
       border-radius: 10px;
       padding: 10px 14px;
       color: #fff;
       font-size: 14px;
       outline: none;
+      user-select: text;
     }
 
     /* Barra de estado de descarga offline */
     .offline-banner {
       display: none;
       background: var(--surface);
+      border: 1px solid #333;
       border-radius: 10px;
       padding: 10px 14px;
       margin-bottom: 16px;
@@ -100,6 +119,7 @@
       color: var(--text);
       align-items: center;
       justify-content: space-between;
+      gap: 10px;
     }
     .offline-banner.visible { display: flex; }
 
@@ -167,13 +187,13 @@
       background: #1a1a1a;
     }
 
-    /* Info del proyecto + botón circular blanco Play */
+    /* Info del proyecto + botones de control principales */
     .project-meta-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 18px;
-      gap: 12px;
+      gap: 10px;
     }
 
     .project-titles {
@@ -182,7 +202,7 @@
     }
 
     .project-title {
-      font-size: 26px;
+      font-size: 25px;
       font-weight: 700;
       letter-spacing: -0.4px;
       white-space: nowrap;
@@ -192,19 +212,23 @@
     }
 
     .project-subtitle {
-      font-size: 14px;
+      font-size: 13px;
       color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .play-controls-cluster {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
+      flex-shrink: 0;
     }
 
     .big-play-btn {
-      width: 54px;
-      height: 54px;
+      width: 52px;
+      height: 52px;
       border-radius: 50%;
       background: #ffffff;
       color: #000000;
@@ -248,13 +272,14 @@
     .track-row {
       display: flex;
       align-items: center;
-      padding: 11px 4px;
-      gap: 14px;
+      padding: 11px 6px;
+      gap: 12px;
       cursor: pointer;
       border-radius: 10px;
       transition: background 0.15s;
     }
-    .track-row:active { background: rgba(255,255,255,0.05); }
+    .track-row:active { background: rgba(255,255,255,0.06); }
+    .track-row.active { background: rgba(255,255,255,0.04); }
 
     .track-index {
       width: 24px;
@@ -277,7 +302,7 @@
     }
     .eq-bars span {
       width: 2.5px;
-      background: #fff;
+      background: var(--accent-yellow);
       border-radius: 2px;
       animation: eq 0.8s infinite ease-in-out;
     }
@@ -285,7 +310,7 @@
     .eq-bars span:nth-child(2) { height: 14px; animation-delay: 0.2s; }
     .eq-bars span:nth-child(3) { height: 9px; animation-delay: 0.4s; }
     .eq-bars span:nth-child(4) { height: 12px; animation-delay: 0.1s; }
-    .eq-bars.paused span { animation: none; height: 5px; }
+    .eq-bars.paused span { animation: none; height: 5px; background: #fff; }
 
     @keyframes eq {
       0%, 100% { height: 4px; }
@@ -308,6 +333,7 @@
     }
     .track-row.active .track-title {
       font-weight: 700;
+      color: #ffffff;
     }
 
     .track-sub-row {
@@ -345,24 +371,24 @@
     }
     .track-dots-btn:active { color: #fff; }
 
-    /* Cápsula Reproductor Flotante Inferior */
+    /* Cápsula Reproductor Flotante Inferior Completa */
     .floating-player {
       position: fixed;
       bottom: 16px;
       left: 50%;
       transform: translateX(-50%);
-      width: calc(100% - 28px);
-      max-width: 440px;
-      background: rgba(34, 34, 34, 0.94);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 32px;
-      padding: 8px 14px 8px 8px;
+      width: calc(100% - 24px);
+      max-width: 446px;
+      background: rgba(32, 32, 32, 0.96);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 34px;
+      padding: 8px 12px 8px 8px;
       display: none;
       align-items: center;
-      gap: 10px;
-      box-shadow: 0 12px 32px rgba(0,0,0,0.75);
+      gap: 8px;
+      box-shadow: 0 14px 36px rgba(0,0,0,0.8);
       z-index: 90;
     }
     .floating-player.visible { display: flex; }
@@ -382,7 +408,7 @@
     @keyframes spin { 100% { transform: rotate(360deg); } }
 
     .mini-meta {
-      width: 115px;
+      width: 98px;
       flex-shrink: 0;
       cursor: pointer;
     }
@@ -392,19 +418,19 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      margin-bottom: 2px;
     }
-    .mini-sub {
+    .mini-time {
       font-size: 11px;
       color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
 
     /* Waveform interactivo amarillo */
     .waveform-wrap {
       flex: 1;
-      height: 30px;
+      height: 32px;
       display: flex;
       align-items: center;
       gap: 2px;
@@ -417,21 +443,36 @@
       flex: 1;
       background: #555;
       border-radius: 2px;
-      transition: background 0.1s;
+      transition: background 0.08s;
     }
     .wave-bar.played {
       background: var(--accent-yellow);
     }
 
-    .mini-next-btn {
-      background: none;
-      border: none;
-      color: var(--text);
-      padding: 4px;
-      cursor: pointer;
+    /* Botones de Pausa y Siguiente en el reproductor inferior */
+    .mini-controls {
       display: flex;
       align-items: center;
+      gap: 4px;
       flex-shrink: 0;
+    }
+
+    .mini-ctrl-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+      border: none;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .mini-ctrl-btn:active {
+      transform: scale(0.9);
+      background: rgba(255,255,255,0.18);
     }
 
     /* Modal / Action Sheet estilo iOS */
@@ -456,6 +497,8 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      max-height: 85vh;
+      overflow-y: auto;
     }
     .sheet-handle {
       width: 36px;
@@ -463,6 +506,7 @@
       background: #444;
       border-radius: 2px;
       margin: 0 auto 10px;
+      flex-shrink: 0;
     }
     .sheet-header {
       font-size: 13px;
@@ -499,8 +543,8 @@
     </button>
 
     <div class="top-right-group">
-      <!-- Botón Descargar Playlist Offline estilo Spotify -->
-      <button class="circle-btn" id="downloadOfflineBtn" onclick="downloadEntirePlaylist()" title="Descargar playlist en el dispositivo">
+      <!-- Botón Descargar Playlist Offline -->
+      <button class="circle-btn" id="downloadOfflineBtn" onclick="downloadEntirePlaylist()" title="Guardar playlist offline">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
       </button>
       <button class="circle-btn" onclick="shareProject()" title="Copiar link">
@@ -537,17 +581,21 @@
     <input type="file" id="coverInput" accept="image/*" style="display:none;" onchange="uploadCover(event)" />
   </div>
 
-  <!-- Título, subtítulo y botón Play blanco -->
+  <!-- Título, subtítulo y controles principales (Repetir, Aleatorio, Play/Pausa) -->
   <div class="project-meta-row">
     <div class="project-titles">
       <div class="project-title" id="projectTitleDisplay">Cargando...</div>
       <div class="project-subtitle" id="projectSubtitleDisplay">0 tracks</div>
     </div>
     <div class="play-controls-cluster">
-      <button class="circle-btn" id="shuffleBtn" onclick="toggleShuffle()" title="Aleatorio">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+      <button class="circle-btn" id="repeatBtn" onclick="toggleRepeat()" title="Repetir">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+        <span id="repeatOneBadge" class="badge-one" style="display:none;">1</span>
       </button>
-      <button class="big-play-btn" id="mainPlayBtn" onclick="handleMainPlay()">
+      <button class="circle-btn" id="shuffleBtn" onclick="toggleShuffle()" title="Aleatorio">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+      </button>
+      <button class="big-play-btn" id="mainPlayBtn" onclick="handleMainPlay()" title="Reproducir / Pausar">
         <svg id="mainPlayIcon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
       </button>
     </div>
@@ -570,25 +618,30 @@
   <div id="trackList" class="track-list"></div>
 </div>
 
-<!-- Reproductor Flotante Inferior -->
+<!-- Reproductor Flotante Inferior con Botón de Pausa/Play y Siguiente -->
 <div class="floating-player" id="floatingPlayer">
   <img id="miniCover" class="mini-disc" src="icon.png" onclick="togglePlay()" />
   <div class="mini-meta" onclick="togglePlay()">
     <div class="mini-title" id="miniTitle">Track</div>
-    <div class="mini-sub" id="miniSub">Proyecto</div>
+    <div class="mini-time" id="miniTime">0:00 / 0:00</div>
   </div>
   <div class="waveform-wrap" id="waveformWrap"></div>
-  <button class="mini-next-btn" onclick="nextTrack()" title="Siguiente">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
-  </button>
+  <div class="mini-controls">
+    <button class="mini-ctrl-btn" id="miniPlayPauseBtn" onclick="togglePlay()" title="Pausar / Reproducir">
+      <svg id="miniPlayPauseIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+    </button>
+    <button class="mini-ctrl-btn" onclick="nextTrack()" title="Siguiente">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+    </button>
+  </div>
 </div>
 
 <!-- Action Sheet (Menú de 3 puntitos) -->
-<div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)">
+<div class="modal-backdrop" id="modalBackdrop" onclick="closeModal()">
   <div class="action-sheet" id="actionSheet" onclick="event.stopPropagation()"></div>
 </div>
 
-<audio id="audioEl" playsinline></audio>
+<audio id="audioEl" playsinline preload="auto"></audio>
 
 <script>
   const SUPABASE_URL = 'https://pmxtljgnnvzxyanesvqu.supabase.co';
@@ -604,75 +657,143 @@
   let tracks = [];
   let currentIndex = -1;
   let isShuffle = false;
+  let repeatMode = 0; // 0 = off, 1 = repeat all, 2 = repeat one
   let isLoadingTrack = false;
   let isDownloadingOffline = false;
+  let activePlayRequestId = 0;
 
-  // Caché persistente en disco del navegador (Cache API) + RAM
-  const CACHE_NAME = '1n1h-offline-audio-v1';
+  // ==========================================
+  // BASE DE DATOS OFFLINE (IndexedDB para guardar Blobs de audio reales)
+  // ==========================================
+  const IDB_NAME = '1n1h_offline_db';
+  const IDB_STORE = 'audio_blobs';
   const memoryBlobUrls = {};
   const inFlightDownloads = {};
   const offlineSavedSet = new Set();
 
-  function getDriveMediaUrl(fileId) {
-    return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${GOOGLE_DRIVE_API_KEY}`;
+  function openAudioDB() {
+    return new Promise((resolve, reject) => {
+      if (!('indexedDB' in window)) return reject(new Error('No IndexedDB'));
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = (e) => {
+        const idb = e.target.result;
+        if (!idb.objectStoreNames.contains(IDB_STORE)) {
+          idb.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
   }
 
-  // Verifica qué tracks ya están guardados offline en el dispositivo
-  async function syncOfflineStatus() {
-    if (!('caches' in window)) return;
+  async function getBlobFromIDB(fileId) {
     try {
-      const cache = await caches.open(CACHE_NAME);
-      const keys = await cache.keys();
-      const cachedUrls = new Set(keys.map(req => req.url));
-      offlineSavedSet.clear();
-
-      tracks.forEach(t => {
-        if (cachedUrls.has(getDriveMediaUrl(t.drive_file_id))) {
-          offlineSavedSet.add(t.drive_file_id);
-        }
+      const idb = await openAudioDB();
+      return await new Promise((resolve, reject) => {
+        const tx = idb.transaction(IDB_STORE, 'readonly');
+        const req = tx.objectStore(IDB_STORE).get(fileId);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
       });
+    } catch (e) {
+      return null;
+    }
+  }
 
+  async function saveBlobToIDB(fileId, blob) {
+    try {
+      const idb = await openAudioDB();
+      await new Promise((resolve, reject) => {
+        const tx = idb.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put(blob, fileId);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+      offlineSavedSet.add(fileId);
+    } catch (e) {}
+  }
+
+  async function deleteBlobFromIDB(fileId) {
+    try {
+      const idb = await openAudioDB();
+      await new Promise((resolve) => {
+        const tx = idb.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(fileId);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+      offlineSavedSet.delete(fileId);
+    } catch (e) {}
+  }
+
+  async function syncOfflineStatus() {
+    try {
+      const idb = await openAudioDB();
+      const keys = await new Promise((resolve) => {
+        const tx = idb.transaction(IDB_STORE, 'readonly');
+        const req = tx.objectStore(IDB_STORE).getAllKeys();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      });
+      const keySet = new Set(keys);
+      offlineSavedSet.clear();
+      tracks.forEach(t => {
+        if (keySet.has(t.drive_file_id)) offlineSavedSet.add(t.drive_file_id);
+      });
       const dlBtn = document.getElementById('downloadOfflineBtn');
       const allSaved = tracks.length > 0 && tracks.every(t => offlineSavedSet.has(t.drive_file_id));
       dlBtn.classList.toggle('downloaded', allSaved);
     } catch (e) {}
   }
 
-  // Obtiene el Blob URL local (desde disco si está offline, o descargándolo y guardándolo en disco)
-  async function getLocalPlayableUrl(fileId) {
-    if (memoryBlobUrls[fileId]) {
-      return memoryBlobUrls[fileId];
+  // Descarga tolerante a fallos (con acknowledgeAbuse=true para WAVs grandes >25MB)
+  async function fetchDriveAudioBlob(fileId) {
+    // URL principal con acknowledgeAbuse=true (evita error 403 de escaneo de virus en WAVs pesados)
+    const primaryUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&acknowledgeAbuse=true&key=${GOOGLE_DRIVE_API_KEY}`;
+
+    let res = await fetch(primaryUrl, { mode: 'cors', credentials: 'omit' });
+
+    // Si falla por permisos del archivo, pedimos al Apps Script que lo haga público y reintentamos
+    if (!res.ok) {
+      try {
+        await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'makePublic', fileId: fileId })
+        });
+        res = await fetch(primaryUrl, { mode: 'cors', credentials: 'omit' });
+      } catch (e) {}
     }
 
-    if (inFlightDownloads[fileId]) {
-      return inFlightDownloads[fileId];
+    if (!res.ok) {
+      let errDetail = `HTTP ${res.status}`;
+      try {
+        const errJson = await res.json();
+        if (errJson?.error?.message) errDetail = errJson.error.message;
+      } catch (e) {}
+      throw new Error(errDetail);
     }
+
+    const rawBlob = await res.blob();
+    // Asegurar MIME type de audio válido para que iOS/Chrome nunca lo rechacen
+    if (!rawBlob.type || rawBlob.type === 'application/octet-stream') {
+      return new Blob([rawBlob], { type: 'audio/wav' });
+    }
+    return rawBlob;
+  }
+
+  async function getLocalPlayableUrl(fileId) {
+    if (memoryBlobUrls[fileId]) return memoryBlobUrls[fileId];
+    if (inFlightDownloads[fileId]) return inFlightDownloads[fileId];
 
     inFlightDownloads[fileId] = (async () => {
-      const url = getDriveMediaUrl(fileId);
-      let blob = null;
+      // 1. Revisar si ya está guardado en IndexedDB del teléfono/PC
+      let blob = await getBlobFromIDB(fileId);
 
-      // 1. Buscar primero en almacenamiento local del dispositivo (Cache API)
-      if ('caches' in window) {
-        try {
-          const cache = await caches.open(CACHE_NAME);
-          const cachedResponse = await cache.match(url);
-          if (cachedResponse) {
-            blob = await cachedResponse.blob();
-          }
-        } catch (e) {}
-      }
-
-      // 2. Si no estaba guardado, descargarlo con fetch() y guardarlo en el dispositivo
-      if (!blob) {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const resClone = res.clone();
-        blob = await res.blob();
-
-        if ('caches' in window) {
-          caches.open(CACHE_NAME).then(cache => cache.put(url, resClone)).catch(() => {});
-        }
+      // 2. Si no está en disco, descargarlo de Google Drive y guardarlo en IndexedDB
+      if (!blob || blob.size === 0) {
+        blob = await fetchDriveAudioBlob(fileId);
+        await saveBlobToIDB(fileId, blob);
+      } else {
         offlineSavedSet.add(fileId);
       }
 
@@ -690,32 +811,29 @@
     }
   }
 
-  // Pre-carga silenciosa de los próximos 2 tracks para cambio sin pausas
+  // Pre-carga silenciosa del siguiente track para que no haya pausa entre canciones
   function preloadUpcomingTracks(fromIdx) {
     if (tracks.length <= 1) return;
-    const next1 = (fromIdx + 1) % tracks.length;
-    const next2 = (fromIdx + 2) % tracks.length;
-    [next1, next2].forEach(i => {
-      const t = tracks[i];
-      if (t && !memoryBlobUrls[t.drive_file_id] && !inFlightDownloads[t.drive_file_id]) {
-        getLocalPlayableUrl(t.drive_file_id).then(() => renderTracks()).catch(() => {});
-      }
-    });
+    const nextIdx = (fromIdx + 1) % tracks.length;
+    const nextTrackObj = tracks[nextIdx];
+    if (nextTrackObj && !memoryBlobUrls[nextTrackObj.drive_file_id] && !inFlightDownloads[nextTrackObj.drive_file_id]) {
+      getLocalPlayableUrl(nextTrackObj.drive_file_id)
+        .then(() => {
+          syncOfflineStatus();
+          renderTracks();
+        })
+        .catch(() => {});
+    }
   }
 
-  // Descargar toda la playlist en el dispositivo (botón estilo Spotify)
   async function downloadEntirePlaylist() {
     if (isDownloadingOffline || tracks.length === 0) return;
 
     const allAlreadySaved = tracks.every(t => offlineSavedSet.has(t.drive_file_id));
     if (allAlreadySaved) {
-      if (confirm('Esta playlist ya está descargada en tu dispositivo. ¿Querés eliminar la descarga offline para liberar espacio?')) {
-        if ('caches' in window) {
-          const cache = await caches.open(CACHE_NAME);
-          for (const t of tracks) {
-            await cache.delete(getDriveMediaUrl(t.drive_file_id));
-            offlineSavedSet.delete(t.drive_file_id);
-          }
+      if (confirm('Esta playlist ya está guardada offline en tu dispositivo. ¿Querés borrar los audios descargados para liberar espacio?')) {
+        for (const t of tracks) {
+          await deleteBlobFromIDB(t.drive_file_id);
         }
         await syncOfflineStatus();
         renderTracks();
@@ -728,26 +846,34 @@
     const bannerText = document.getElementById('offlineBannerText');
     banner.classList.add('visible');
 
+    let successCount = 0;
     for (let i = 0; i < tracks.length; i++) {
       const t = tracks[i];
-      if (offlineSavedSet.has(t.drive_file_id)) continue;
+      if (offlineSavedSet.has(t.drive_file_id)) {
+        successCount++;
+        continue;
+      }
 
       bannerText.textContent = `Descargando ${i + 1} de ${tracks.length}: ${t.title}...`;
       try {
         await getLocalPlayableUrl(t.drive_file_id);
+        successCount++;
         renderTracks();
       } catch (err) {
-        console.warn('Error descargando track:', t.title);
+        console.warn('No se pudo cachear:', t.title, err);
       }
     }
 
     isDownloadingOffline = false;
-    bannerText.textContent = '✓ Playlist disponible offline en este dispositivo';
+    bannerText.textContent = `✓ ${successCount}/${tracks.length} tracks listos para escuchar sin conexión`;
     await syncOfflineStatus();
     renderTracks();
-    setTimeout(() => banner.classList.remove('visible'), 3000);
+    setTimeout(() => banner.classList.remove('visible'), 3500);
   }
 
+  // ==========================================
+  // FORMA DE ONDA Y CONTROLES DE TIEMPO
+  // ==========================================
   const waveHeights = [25, 45, 70, 40, 85, 60, 30, 90, 100, 65, 50, 80, 95, 45, 60, 75, 40, 85, 55, 35, 70, 90, 50, 65, 80, 40, 60, 30];
   function buildWaveform() {
     const wrap = document.getElementById('waveformWrap');
@@ -764,6 +890,19 @@
   const waveWrap = document.getElementById('waveformWrap');
   let isSeeking = false;
 
+  function formatSeconds(sec) {
+    if (!sec || isNaN(sec) || !isFinite(sec)) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  }
+
+  function updateTimeDisplay() {
+    const cur = formatSeconds(audio.currentTime);
+    const dur = formatSeconds(audio.duration);
+    document.getElementById('miniTime').textContent = `${cur} / ${dur}`;
+  }
+
   function applySeekFromClientX(clientX) {
     if (!audio.duration || isNaN(audio.duration)) return;
     const rect = waveWrap.getBoundingClientRect();
@@ -771,6 +910,7 @@
     pct = Math.max(0, Math.min(1, pct));
     audio.currentTime = pct * audio.duration;
     updateWaveformProgress(pct);
+    updateTimeDisplay();
     updatePositionState();
   }
 
@@ -793,10 +933,13 @@
     const bars = document.querySelectorAll('.wave-bar');
     const activeCount = Math.floor(pct * bars.length);
     bars.forEach((b, i) => {
-      b.classList.toggle('played', i <= activeCount);
+      b.classList.toggle('played', i <= activeCount && pct > 0);
     });
   }
 
+  // ==========================================
+  // CARGA DE PROYECTO Y LISTA DE TRACKS
+  // ==========================================
   async function init() {
     const urlParams = new URLSearchParams(window.location.search);
     const sharedProjectId = urlParams.get('p');
@@ -805,11 +948,12 @@
     allProjects = projects || [];
 
     if (allProjects.length === 0) {
-      await createNewProject('Maquetas 1N1H');
+      await createNewProject('1N1H Maquetas');
       return;
     }
 
-    const initialId = sharedProjectId || allProjects[0].id;
+    const exists = allProjects.some(p => p.id === sharedProjectId);
+    const initialId = (sharedProjectId && exists) ? sharedProjectId : allProjects[0].id;
     await loadProject(initialId);
   }
 
@@ -848,8 +992,8 @@
     const diffMins = Math.floor(diffMs / 60000);
     if (diffMins < 60) return `${Math.max(1, diffMins)}m ago`;
     const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} hours ago`;
-    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
   }
 
   function renderTracks() {
@@ -872,7 +1016,7 @@
         ? `<div class="eq-bars ${isPaused ? 'paused' : ''}"><span></span><span></span><span></span><span></span></div>`
         : `${idx + 1}`;
 
-      const offlineBadge = isSavedOffline ? `<span class="offline-dot">↓</span>` : '';
+      const offlineBadge = isSavedOffline ? `<span class="offline-dot" title="Disponible offline">↓</span>` : '';
 
       row.innerHTML = `
         <div class="track-index">${indexHtml}</div>
@@ -880,10 +1024,10 @@
           <div class="track-title">${escapeHtml(t.title)}</div>
           <div class="track-sub-row">
             ${offlineBadge}
-            <span>${isLoadingTrack && isCurrent ? 'Descargando audio...' : formatRelativeDate(t.created_at)}</span>
+            <span>${isLoadingTrack && isCurrent ? 'Cargando maqueta...' : formatRelativeDate(t.created_at)}</span>
           </div>
         </div>
-        <button class="track-dots-btn" onclick="event.stopPropagation(); openTrackMenu(${idx})">
+        <button class="track-dots-btn" onclick="event.stopPropagation(); openTrackMenu(${idx})" title="Opciones">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
         </button>
       `;
@@ -892,39 +1036,47 @@
   }
 
   function escapeHtml(str) {
-    return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   }
 
+  // ==========================================
+  // MOTOR DE REPRODUCCIÓN (Con desbloqueo iOS y Fallback)
+  // ==========================================
   async function playFromIndex(idx) {
-    if (tracks.length === 0) return;
+    if (tracks.length === 0 || idx < 0 || idx >= tracks.length) return;
 
+    // Si tocás el mismo track que ya está cargado, reinicia desde 0:00 al instante
     if (idx === currentIndex && audio.src && !isLoadingTrack) {
       audio.currentTime = 0;
       audio.play().catch(() => {});
       updateWaveformProgress(0);
+      updateTimeDisplay();
       updatePositionState();
       syncPlayIcons();
       renderTracks();
       return;
     }
 
+    const requestId = ++activePlayRequestId;
     currentIndex = idx;
     const track = tracks[currentIndex];
     const isAlreadyLocal = Boolean(memoryBlobUrls[track.drive_file_id] || offlineSavedSet.has(track.drive_file_id));
     isLoadingTrack = !isAlreadyLocal;
 
+    // Pausar el anterior limpiamente antes de cargar el nuevo
+    audio.pause();
+
     document.getElementById('floatingPlayer').classList.add('visible');
     document.getElementById('miniTitle').textContent = track.title;
-    document.getElementById('miniSub').textContent = `${currentProject.title}${currentProject.artist ? ' · ' + currentProject.artist : ''}`;
+    document.getElementById('miniTime').textContent = isLoadingTrack ? 'Cargando...' : '0:00 / 0:00';
     document.getElementById('miniCover').src = currentProject.cover_url || 'icon.png';
     updateWaveformProgress(0);
+    syncPlayIcons();
     renderTracks();
 
     try {
       const localUrl = await getLocalPlayableUrl(track.drive_file_id);
-
-      // Verificar que el usuario no haya tocado otro tema mientras descargaba este
-      if (currentIndex !== idx) return;
+      if (requestId !== activePlayRequestId) return;
 
       isLoadingTrack = false;
       audio.src = localUrl;
@@ -932,19 +1084,30 @@
       await audio.play();
 
       syncPlayIcons();
-      await syncOfflineStatus();
       renderTracks();
       updateMediaSession(track);
       updatePositionState();
-
-      // Pre-cargar los siguientes temas en silencio para que no haya pausas
       preloadUpcomingTracks(idx);
     } catch (err) {
-      if (currentIndex === idx) {
+      if (requestId !== activePlayRequestId) return;
+
+      // Fallback directo si fetch() fue bloqueado por algún motivo externo
+      try {
+        const directFallbackUrl = `https://www.googleapis.com/drive/v3/files/${track.drive_file_id}?alt=media&acknowledgeAbuse=true&key=${GOOGLE_DRIVE_API_KEY}`;
         isLoadingTrack = false;
+        audio.src = directFallbackUrl;
+        audio.currentTime = 0;
+        await audio.play();
+        syncPlayIcons();
         renderTracks();
-        if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
-          alert('No se pudo reproducir el audio. Verificá que la carpeta de Drive sea pública.');
+        updateMediaSession(track);
+      } catch (fallbackErr) {
+        isLoadingTrack = false;
+        syncPlayIcons();
+        renderTracks();
+        document.getElementById('miniTime').textContent = 'Tocá ▶ para reproducir';
+        if (fallbackErr.name !== 'NotAllowedError' && fallbackErr.name !== 'AbortError') {
+          alert(`No se pudo cargar "${track.title}" (${err.message}).`);
         }
       }
     }
@@ -961,9 +1124,17 @@
   }
 
   function togglePlay() {
-    if (!audio.src) return;
+    if (tracks.length === 0) return;
+    if (currentIndex === -1) {
+      playFromIndex(0);
+      return;
+    }
+    if (!audio.src) {
+      playFromIndex(currentIndex);
+      return;
+    }
     if (audio.paused) {
-      audio.play();
+      audio.play().catch(() => {});
     } else {
       audio.pause();
     }
@@ -973,19 +1144,26 @@
   }
 
   function syncPlayIcons() {
-    const isPlaying = !audio.paused;
-    document.getElementById('mainPlayIcon').innerHTML = isPlaying
-      ? '<rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect>'
-      : '<polygon points="6 4 20 12 6 20 6 4"></polygon>';
+    const isPlaying = !audio.paused && Boolean(audio.src);
+    const pauseSvg = '<rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect>';
+    const playSvg = '<polygon points="6 4 20 12 6 20 6 4"></polygon>';
+
+    document.getElementById('mainPlayIcon').innerHTML = isPlaying ? pauseSvg : playSvg;
+    document.getElementById('miniPlayPauseIcon').innerHTML = isPlaying ? pauseSvg : playSvg;
     document.getElementById('miniCover').classList.toggle('spinning', isPlaying);
   }
 
   function toggleShuffle() {
     isShuffle = !isShuffle;
     document.getElementById('shuffleBtn').classList.toggle('active', isShuffle);
-    if (isShuffle && audio.paused && tracks.length > 0) {
-      nextTrack();
-    }
+  }
+
+  function toggleRepeat() {
+    repeatMode = (repeatMode + 1) % 3;
+    const btn = document.getElementById('repeatBtn');
+    const badge = document.getElementById('repeatOneBadge');
+    btn.classList.toggle('active', repeatMode > 0);
+    badge.style.display = repeatMode === 2 ? 'flex' : 'none';
   }
 
   function nextTrack() {
@@ -997,7 +1175,13 @@
       } while (rand === currentIndex);
       playFromIndex(rand);
     } else {
-      playFromIndex((currentIndex + 1) % tracks.length);
+      const nextIdx = currentIndex + 1;
+      if (nextIdx >= tracks.length && repeatMode === 0 && !isShuffle) {
+        // Fin de la lista si Repeat está desactivado: vuelve al primero
+        playFromIndex(0);
+      } else {
+        playFromIndex(nextIdx % tracks.length);
+      }
     }
   }
 
@@ -1011,15 +1195,24 @@
     }
   }
 
-  audio.addEventListener('ended', nextTrack);
-  audio.addEventListener('play', () => { syncPlayIcons(); updatePositionState(); });
-  audio.addEventListener('pause', () => { syncPlayIcons(); updatePositionState(); });
-  audio.addEventListener('loadedmetadata', updatePositionState);
+  audio.addEventListener('ended', () => {
+    if (repeatMode === 2) {
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } else {
+      nextTrack();
+    }
+  });
+
+  audio.addEventListener('play', () => { syncPlayIcons(); renderTracks(); updatePositionState(); });
+  audio.addEventListener('pause', () => { syncPlayIcons(); renderTracks(); updatePositionState(); });
+  audio.addEventListener('loadedmetadata', () => { updateTimeDisplay(); updatePositionState(); });
 
   audio.addEventListener('timeupdate', () => {
     if (!audio.duration || isSeeking) return;
     const pct = audio.currentTime / audio.duration;
     updateWaveformProgress(pct);
+    updateTimeDisplay();
     updatePositionState();
   });
 
@@ -1037,6 +1230,9 @@
     }
   }
 
+  // ==========================================
+  // MENÚS Y GESTIÓN DE TRACKS / PROYECTOS
+  // ==========================================
   function openModal(html) {
     document.getElementById('actionSheet').innerHTML = `<div class="sheet-handle"></div>` + html;
     document.getElementById('modalBackdrop').classList.add('open');
@@ -1050,19 +1246,58 @@
     const track = tracks[idx];
     openModal(`
       <div class="sheet-header">${escapeHtml(track.title)}</div>
-      <button class="sheet-btn" onclick="promptRenameTrack('${track.id}', '${escapeHtml(track.title)}')">Renombrar track</button>
+      <button class="sheet-btn" onclick="promptRenameTrack(${idx})">Renombrar track</button>
+      ${idx > 0 ? `<button class="sheet-btn" onclick="moveTrackOrder(${idx}, -1)">↑ Subir una posición</button>` : ''}
+      ${idx < tracks.length - 1 ? `<button class="sheet-btn" onclick="moveTrackOrder(${idx}, 1)">↓ Bajar una posición</button>` : ''}
+      <button class="sheet-btn" onclick="downloadSingleTrackFile(${idx})">Guardar archivo de audio</button>
       <button class="sheet-btn danger" onclick="deleteTrack('${track.id}')">Eliminar del proyecto</button>
     `);
   }
 
-  async function promptRenameTrack(trackId, oldTitle) {
+  async function promptRenameTrack(idx) {
     closeModal();
-    const newTitle = prompt('Nuevo nombre del track:', oldTitle);
+    const track = tracks[idx];
+    const newTitle = prompt('Nuevo nombre del track:', track.title);
     if (!newTitle || !newTitle.trim()) return;
-    await db.from('tracks').update({ title: newTitle.trim() }).eq('id', trackId);
+    await db.from('tracks').update({ title: newTitle.trim() }).eq('id', track.id);
     await loadProject(currentProject.id);
-    if (currentIndex !== -1 && tracks[currentIndex]?.id === trackId) {
+    if (currentIndex === idx) {
       document.getElementById('miniTitle').textContent = newTitle.trim();
+    }
+  }
+
+  async function moveTrackOrder(idx, direction) {
+    closeModal();
+    const targetIdx = idx + direction;
+    if (targetIdx < 0 || targetIdx >= tracks.length) return;
+
+    const trackA = tracks[idx];
+    const trackB = tracks[targetIdx];
+
+    await db.from('tracks').update({ track_order: targetIdx }).eq('id', trackA.id);
+    await db.from('tracks').update({ track_order: idx }).eq('id', trackB.id);
+
+    if (currentIndex === idx) currentIndex = targetIdx;
+    else if (currentIndex === targetIdx) currentIndex = idx;
+
+    await loadProject(currentProject.id);
+  }
+
+  async function downloadSingleTrackFile(idx) {
+    closeModal();
+    const track = tracks[idx];
+    try {
+      const blobUrl = await getLocalPlayableUrl(track.drive_file_id);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = track.title;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      await syncOfflineStatus();
+      renderTracks();
+    } catch (e) {
+      alert('Error al descargar el archivo.');
     }
   }
 
@@ -1070,16 +1305,23 @@
     closeModal();
     if (!confirm('¿Eliminar este track del proyecto?')) return;
     await db.from('tracks').delete().eq('id', trackId);
+    if (currentIndex !== -1 && tracks[currentIndex]?.id === trackId) {
+      audio.pause();
+      audio.src = '';
+      currentIndex = -1;
+      document.getElementById('floatingPlayer').classList.remove('visible');
+    }
     await loadProject(currentProject.id);
   }
 
   function openProjectMenu() {
     openModal(`
       <div class="sheet-header">${escapeHtml(currentProject.title)}</div>
-      <button class="sheet-btn" onclick="closeModal(); downloadEntirePlaylist()">Descargar playlist offline</button>
+      <button class="sheet-btn" onclick="closeModal(); downloadEntirePlaylist()">Guardar playlist offline en dispositivo</button>
       <button class="sheet-btn" onclick="promptRenameProject()">Cambiar nombre del proyecto</button>
       <button class="sheet-btn" onclick="promptChangeArtist()">Cambiar nombre de artista</button>
       <button class="sheet-btn" onclick="closeModal(); document.getElementById('coverInput').click()">Cambiar portada</button>
+      ${allProjects.length > 1 ? `<button class="sheet-btn danger" onclick="deleteCurrentProject()">Eliminar proyecto completo</button>` : ''}
     `);
   }
 
@@ -1099,6 +1341,14 @@
     await loadProject(currentProject.id);
   }
 
+  async function deleteCurrentProject() {
+    closeModal();
+    if (!confirm(`¿Seguro que querés eliminar el proyecto "${currentProject.title}" y toda su lista?`)) return;
+    await db.from('projects').delete().eq('id', currentProject.id);
+    window.history.replaceState({}, '', window.location.pathname);
+    await init();
+  }
+
   function openProjectsSheet() {
     let itemsHtml = `<div class="sheet-header">Tus Proyectos</div>`;
     allProjects.forEach(p => {
@@ -1110,14 +1360,18 @@
   }
 
   async function selectProject(id) {
+    audio.pause();
+    audio.src = '';
+    currentIndex = -1;
+    document.getElementById('floatingPlayer').classList.remove('visible');
     window.history.replaceState({}, '', `?p=${id}`);
     await loadProject(id);
   }
 
   async function createNewProject(defaultName) {
     const title = defaultName || prompt('Nombre del nuevo proyecto:');
-    if (!title) return;
-    const { data } = await db.from('projects').insert({ title }).select().single();
+    if (!title || !title.trim()) return;
+    const { data } = await db.from('projects').insert({ title: title.trim(), artist: 'Fran' }).select().single();
     if (data) {
       window.history.replaceState({}, '', `?p=${data.id}`);
       await init();
@@ -1135,6 +1389,9 @@
     }
   }
 
+  // ==========================================
+  // SUBIDA DIRECTA CON GUARDADO OFFLINE AUTOMÁTICO
+  // ==========================================
   function uploadBinaryWithProgress(uploadUrl, file, onProgress) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -1194,6 +1451,10 @@
           btn.textContent = `Subiendo ${i + 1}/${files.length}: ${pct}%`;
         });
 
+        // Guardar también en el almacenamiento offline de este dispositivo para no tener que re-descargarlo
+        await saveBlobToIDB(driveFile.id, file);
+        memoryBlobUrls[driveFile.id] = URL.createObjectURL(file);
+
         const cleanTitle = file.name.replace(/\.[^/.]+$/, "");
         await db.from('tracks').insert({
           project_id: currentProject.id,
@@ -1239,7 +1500,7 @@
       });
 
       navigator.mediaSession.setActionHandler('play', () => {
-        audio.play();
+        audio.play().catch(() => {});
         syncPlayIcons();
         renderTracks();
       });
@@ -1260,18 +1521,21 @@
         if (audio.duration) {
           updateWaveformProgress(audio.currentTime / audio.duration);
         }
+        updateTimeDisplay();
         updatePositionState();
       });
 
       navigator.mediaSession.setActionHandler('seekbackward', (details) => {
         const skip = details.seekOffset || 10;
         audio.currentTime = Math.max(0, audio.currentTime - skip);
+        updateTimeDisplay();
         updatePositionState();
       });
 
       navigator.mediaSession.setActionHandler('seekforward', (details) => {
         const skip = details.seekOffset || 10;
         audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + skip);
+        updateTimeDisplay();
         updatePositionState();
       });
     }
