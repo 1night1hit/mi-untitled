@@ -546,13 +546,13 @@
   <div class="action-sheet" id="actionSheet" onclick="event.stopPropagation()"></div>
 </div>
 
-<audio id="audioEl" playsinline></audio>
+<audio id="audioEl" playsinline preload="metadata"></audio>
 
 <script>
   const SUPABASE_URL = 'https://pmxtljgnnvzxyanesvqu.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_CkTeNzIdf8c3Du2EiguLZg_cgdCD8Px';
   const GOOGLE_DRIVE_API_KEY = 'AIzaSyCNouqYL6YaZ044Lqp290bTqIcUXKEW8r8';
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby573h9JNPoWLPgF3tsUd762KEHWO3J4RNP0ZYQEyPXmdNruSHBOTfWMIDJc8Nmz5CTwA/exec';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzx5cQTCOY-UGcKKj8m8v-Zn_KaZfFDM9gXWY5aNbRbHhyHkhnbsIGUf-EUukKccnbuGw/exec';
 
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const audio = document.getElementById('audioEl');
@@ -563,8 +563,6 @@
   let currentIndex = -1;
   let isShuffle = false;
   let isLoadingTrack = false;
-
-  const audioBlobCache = {};
 
   const waveHeights = [25, 45, 70, 40, 85, 60, 30, 90, 100, 65, 50, 80, 95, 45, 60, 75, 40, 85, 55, 35, 70, 90, 50, 65, 80, 40, 60, 30];
   function buildWaveform() {
@@ -706,7 +704,7 @@
     return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   }
 
-async function playFromIndex(idx) {
+  async function playFromIndex(idx) {
     if (tracks.length === 0) return;
 
     if (idx === currentIndex && audio.src) {
@@ -730,7 +728,7 @@ async function playFromIndex(idx) {
     updateWaveformProgress(0);
     renderTracks();
 
-    // Streaming directo desde Google Drive (arranca al instante sin descargar el WAV entero)
+    // Streaming progresivo directo desde Google Drive
     const driveUrl = `https://www.googleapis.com/drive/v3/files/${track.drive_file_id}?alt=media&key=${GOOGLE_DRIVE_API_KEY}`;
     audio.src = driveUrl;
     audio.load();
@@ -750,48 +748,10 @@ async function playFromIndex(idx) {
       updateMediaSession(track);
       updatePositionState();
     } catch (err) {
-      // Ignora interrupciones si el usuario cambió rápido de canción
       if (err.name !== 'AbortError') {
         isLoadingTrack = false;
         renderTracks();
       }
-    }
-  }
-
-    currentIndex = idx;
-    const track = tracks[currentIndex];
-    isLoadingTrack = true;
-
-    document.getElementById('floatingPlayer').classList.add('visible');
-    document.getElementById('miniTitle').textContent = track.title;
-    document.getElementById('miniSub').textContent = `${currentProject.title}${currentProject.artist ? ' · ' + currentProject.artist : ''}`;
-    document.getElementById('miniCover').src = currentProject.cover_url || 'icon.png';
-    updateWaveformProgress(0);
-    renderTracks();
-
-    try {
-      let blobUrl = audioBlobCache[track.drive_file_id];
-      if (!blobUrl) {
-        const driveUrl = `https://www.googleapis.com/drive/v3/files/${track.drive_file_id}?alt=media&key=${GOOGLE_DRIVE_API_KEY}`;
-        const res = await fetch(driveUrl);
-        if (!res.ok) throw new Error('No se pudo descargar el audio desde Drive');
-        const blob = await res.blob();
-        blobUrl = URL.createObjectURL(blob);
-        audioBlobCache[track.drive_file_id] = blobUrl;
-      }
-
-      isLoadingTrack = false;
-      audio.src = blobUrl;
-      audio.currentTime = 0;
-      await audio.play();
-      syncPlayIcons();
-      renderTracks();
-      updateMediaSession(track);
-      updatePositionState();
-    } catch (err) {
-      isLoadingTrack = false;
-      renderTracks();
-      alert('Error al cargar el track. Verificá tu conexión.');
     }
   }
 
@@ -1022,7 +982,6 @@ async function playFromIndex(idx) {
       try {
         const mimeType = ext === 'wav' ? 'audio/wav' : 'audio/mpeg';
 
-        // 1. Pedir sesión de subida directa al Apps Script (0.2s)
         const initRes = await fetch(APPS_SCRIPT_URL, {
           method: 'POST',
           body: JSON.stringify({
@@ -1036,12 +995,10 @@ async function playFromIndex(idx) {
           throw new Error(initData.message || 'No se pudo iniciar la subida');
         }
 
-        // 2. Subir archivo binario directo a Google Drive
         const driveFile = await uploadBinaryWithProgress(initData.uploadUrl, file, (pct) => {
           btn.textContent = `Subiendo ${i + 1}/${files.length}: ${pct}%`;
         });
 
-        // 3. Guardar referencia en Supabase
         const cleanTitle = file.name.replace(/\.[^/.]+$/, "");
         await db.from('tracks').insert({
           project_id: currentProject.id,
