@@ -19,6 +19,7 @@
       --text: #ffffff;
       --text-muted: #8e8e93;
       --accent-yellow: #e5ff00;
+      --accent-green: #1db954;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -63,6 +64,7 @@
     }
     .circle-btn:active { transform: scale(0.94); background: var(--surface-light); }
     .circle-btn.active { background: #fff; color: #000; }
+    .circle-btn.downloaded { background: rgba(29, 185, 84, 0.18); color: var(--accent-green); }
 
     .top-right-group {
       display: flex;
@@ -86,6 +88,20 @@
       font-size: 14px;
       outline: none;
     }
+
+    /* Barra de estado de descarga offline */
+    .offline-banner {
+      display: none;
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--text);
+      align-items: center;
+      justify-content: space-between;
+    }
+    .offline-banner.visible { display: flex; }
 
     /* Portada con disco de vinilo asomando */
     .cover-stage {
@@ -294,9 +310,26 @@
       font-weight: 700;
     }
 
-    .track-date {
+    .track-sub-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
       font-size: 12px;
       color: var(--text-muted);
+    }
+
+    .offline-dot {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      color: #000;
+      font-size: 9px;
+      font-weight: 900;
+      flex-shrink: 0;
     }
 
     .track-dots-btn {
@@ -466,6 +499,10 @@
     </button>
 
     <div class="top-right-group">
+      <!-- Botón Descargar Playlist Offline estilo Spotify -->
+      <button class="circle-btn" id="downloadOfflineBtn" onclick="downloadEntirePlaylist()" title="Descargar playlist en el dispositivo">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      </button>
       <button class="circle-btn" onclick="shareProject()" title="Copiar link">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
       </button>
@@ -476,6 +513,11 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
       </button>
     </div>
+  </div>
+
+  <!-- Banner progreso descarga offline -->
+  <div class="offline-banner" id="offlineBanner">
+    <span id="offlineBannerText">Descargando playlist...</span>
   </div>
 
   <!-- Buscador -->
@@ -546,7 +588,7 @@
   <div class="action-sheet" id="actionSheet" onclick="event.stopPropagation()"></div>
 </div>
 
-<audio id="audioEl" playsinline preload="metadata"></audio>
+<audio id="audioEl" playsinline></audio>
 
 <script>
   const SUPABASE_URL = 'https://pmxtljgnnvzxyanesvqu.supabase.co';
@@ -563,6 +605,148 @@
   let currentIndex = -1;
   let isShuffle = false;
   let isLoadingTrack = false;
+  let isDownloadingOffline = false;
+
+  // Caché persistente en disco del navegador (Cache API) + RAM
+  const CACHE_NAME = '1n1h-offline-audio-v1';
+  const memoryBlobUrls = {};
+  const inFlightDownloads = {};
+  const offlineSavedSet = new Set();
+
+  function getDriveMediaUrl(fileId) {
+    return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${GOOGLE_DRIVE_API_KEY}`;
+  }
+
+  // Verifica qué tracks ya están guardados offline en el dispositivo
+  async function syncOfflineStatus() {
+    if (!('caches' in window)) return;
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      const keys = await cache.keys();
+      const cachedUrls = new Set(keys.map(req => req.url));
+      offlineSavedSet.clear();
+
+      tracks.forEach(t => {
+        if (cachedUrls.has(getDriveMediaUrl(t.drive_file_id))) {
+          offlineSavedSet.add(t.drive_file_id);
+        }
+      });
+
+      const dlBtn = document.getElementById('downloadOfflineBtn');
+      const allSaved = tracks.length > 0 && tracks.every(t => offlineSavedSet.has(t.drive_file_id));
+      dlBtn.classList.toggle('downloaded', allSaved);
+    } catch (e) {}
+  }
+
+  // Obtiene el Blob URL local (desde disco si está offline, o descargándolo y guardándolo en disco)
+  async function getLocalPlayableUrl(fileId) {
+    if (memoryBlobUrls[fileId]) {
+      return memoryBlobUrls[fileId];
+    }
+
+    if (inFlightDownloads[fileId]) {
+      return inFlightDownloads[fileId];
+    }
+
+    inFlightDownloads[fileId] = (async () => {
+      const url = getDriveMediaUrl(fileId);
+      let blob = null;
+
+      // 1. Buscar primero en almacenamiento local del dispositivo (Cache API)
+      if ('caches' in window) {
+        try {
+          const cache = await caches.open(CACHE_NAME);
+          const cachedResponse = await cache.match(url);
+          if (cachedResponse) {
+            blob = await cachedResponse.blob();
+          }
+        } catch (e) {}
+      }
+
+      // 2. Si no estaba guardado, descargarlo con fetch() y guardarlo en el dispositivo
+      if (!blob) {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const resClone = res.clone();
+        blob = await res.blob();
+
+        if ('caches' in window) {
+          caches.open(CACHE_NAME).then(cache => cache.put(url, resClone)).catch(() => {});
+        }
+        offlineSavedSet.add(fileId);
+      }
+
+      const blobUrl = URL.createObjectURL(blob);
+      memoryBlobUrls[fileId] = blobUrl;
+      delete inFlightDownloads[fileId];
+      return blobUrl;
+    })();
+
+    try {
+      return await inFlightDownloads[fileId];
+    } catch (err) {
+      delete inFlightDownloads[fileId];
+      throw err;
+    }
+  }
+
+  // Pre-carga silenciosa de los próximos 2 tracks para cambio sin pausas
+  function preloadUpcomingTracks(fromIdx) {
+    if (tracks.length <= 1) return;
+    const next1 = (fromIdx + 1) % tracks.length;
+    const next2 = (fromIdx + 2) % tracks.length;
+    [next1, next2].forEach(i => {
+      const t = tracks[i];
+      if (t && !memoryBlobUrls[t.drive_file_id] && !inFlightDownloads[t.drive_file_id]) {
+        getLocalPlayableUrl(t.drive_file_id).then(() => renderTracks()).catch(() => {});
+      }
+    });
+  }
+
+  // Descargar toda la playlist en el dispositivo (botón estilo Spotify)
+  async function downloadEntirePlaylist() {
+    if (isDownloadingOffline || tracks.length === 0) return;
+
+    const allAlreadySaved = tracks.every(t => offlineSavedSet.has(t.drive_file_id));
+    if (allAlreadySaved) {
+      if (confirm('Esta playlist ya está descargada en tu dispositivo. ¿Querés eliminar la descarga offline para liberar espacio?')) {
+        if ('caches' in window) {
+          const cache = await caches.open(CACHE_NAME);
+          for (const t of tracks) {
+            await cache.delete(getDriveMediaUrl(t.drive_file_id));
+            offlineSavedSet.delete(t.drive_file_id);
+          }
+        }
+        await syncOfflineStatus();
+        renderTracks();
+      }
+      return;
+    }
+
+    isDownloadingOffline = true;
+    const banner = document.getElementById('offlineBanner');
+    const bannerText = document.getElementById('offlineBannerText');
+    banner.classList.add('visible');
+
+    for (let i = 0; i < tracks.length; i++) {
+      const t = tracks[i];
+      if (offlineSavedSet.has(t.drive_file_id)) continue;
+
+      bannerText.textContent = `Descargando ${i + 1} de ${tracks.length}: ${t.title}...`;
+      try {
+        await getLocalPlayableUrl(t.drive_file_id);
+        renderTracks();
+      } catch (err) {
+        console.warn('Error descargando track:', t.title);
+      }
+    }
+
+    isDownloadingOffline = false;
+    bannerText.textContent = '✓ Playlist disponible offline en este dispositivo';
+    await syncOfflineStatus();
+    renderTracks();
+    setTimeout(() => banner.classList.remove('visible'), 3000);
+  }
 
   const waveHeights = [25, 45, 70, 40, 85, 60, 30, 90, 100, 65, 50, 80, 95, 45, 60, 75, 40, 85, 55, 35, 70, 90, 50, 65, 80, 40, 60, 30];
   function buildWaveform() {
@@ -653,6 +837,7 @@
     const artistText = project.artist ? `${project.artist} · ` : '';
     document.getElementById('projectSubtitleDisplay').textContent = `${artistText}${tracks.length} tracks`;
 
+    await syncOfflineStatus();
     renderTracks();
   }
 
@@ -677,6 +862,7 @@
 
       const isCurrent = idx === currentIndex;
       const isPaused = audio.paused;
+      const isSavedOffline = offlineSavedSet.has(t.drive_file_id);
 
       const row = document.createElement('div');
       row.className = `track-row ${isCurrent ? 'active' : ''}`;
@@ -686,11 +872,16 @@
         ? `<div class="eq-bars ${isPaused ? 'paused' : ''}"><span></span><span></span><span></span><span></span></div>`
         : `${idx + 1}`;
 
+      const offlineBadge = isSavedOffline ? `<span class="offline-dot">↓</span>` : '';
+
       row.innerHTML = `
         <div class="track-index">${indexHtml}</div>
         <div class="track-info">
           <div class="track-title">${escapeHtml(t.title)}</div>
-          <div class="track-date">${isLoadingTrack && isCurrent ? 'Cargando audio...' : formatRelativeDate(t.created_at)}</div>
+          <div class="track-sub-row">
+            ${offlineBadge}
+            <span>${isLoadingTrack && isCurrent ? 'Descargando audio...' : formatRelativeDate(t.created_at)}</span>
+          </div>
         </div>
         <button class="track-dots-btn" onclick="event.stopPropagation(); openTrackMenu(${idx})">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
@@ -707,7 +898,7 @@
   async function playFromIndex(idx) {
     if (tracks.length === 0) return;
 
-    if (idx === currentIndex && audio.src) {
+    if (idx === currentIndex && audio.src && !isLoadingTrack) {
       audio.currentTime = 0;
       audio.play().catch(() => {});
       updateWaveformProgress(0);
@@ -719,7 +910,8 @@
 
     currentIndex = idx;
     const track = tracks[currentIndex];
-    isLoadingTrack = true;
+    const isAlreadyLocal = Boolean(memoryBlobUrls[track.drive_file_id] || offlineSavedSet.has(track.drive_file_id));
+    isLoadingTrack = !isAlreadyLocal;
 
     document.getElementById('floatingPlayer').classList.add('visible');
     document.getElementById('miniTitle').textContent = track.title;
@@ -728,29 +920,32 @@
     updateWaveformProgress(0);
     renderTracks();
 
-    // Streaming progresivo directo desde Google Drive
-    const driveUrl = `https://www.googleapis.com/drive/v3/files/${track.drive_file_id}?alt=media&key=${GOOGLE_DRIVE_API_KEY}`;
-    audio.src = driveUrl;
-    audio.load();
-
-    audio.oncanplay = () => {
-      if (isLoadingTrack) {
-        isLoadingTrack = false;
-        renderTracks();
-      }
-    };
-
     try {
-      await audio.play();
+      const localUrl = await getLocalPlayableUrl(track.drive_file_id);
+
+      // Verificar que el usuario no haya tocado otro tema mientras descargaba este
+      if (currentIndex !== idx) return;
+
       isLoadingTrack = false;
+      audio.src = localUrl;
+      audio.currentTime = 0;
+      await audio.play();
+
       syncPlayIcons();
+      await syncOfflineStatus();
       renderTracks();
       updateMediaSession(track);
       updatePositionState();
+
+      // Pre-cargar los siguientes temas en silencio para que no haya pausas
+      preloadUpcomingTracks(idx);
     } catch (err) {
-      if (err.name !== 'AbortError') {
+      if (currentIndex === idx) {
         isLoadingTrack = false;
         renderTracks();
+        if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
+          alert('No se pudo reproducir el audio. Verificá que la carpeta de Drive sea pública.');
+        }
       }
     }
   }
@@ -881,6 +1076,7 @@
   function openProjectMenu() {
     openModal(`
       <div class="sheet-header">${escapeHtml(currentProject.title)}</div>
+      <button class="sheet-btn" onclick="closeModal(); downloadEntirePlaylist()">Descargar playlist offline</button>
       <button class="sheet-btn" onclick="promptRenameProject()">Cambiar nombre del proyecto</button>
       <button class="sheet-btn" onclick="promptChangeArtist()">Cambiar nombre de artista</button>
       <button class="sheet-btn" onclick="closeModal(); document.getElementById('coverInput').click()">Cambiar portada</button>
@@ -939,7 +1135,6 @@
     }
   }
 
-  // Subida binaria directa a Google Drive con porcentaje en tiempo real
   function uploadBinaryWithProgress(uploadUrl, file, onProgress) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
