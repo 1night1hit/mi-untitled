@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#121212" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="1N1H Maquetas" />
@@ -646,8 +647,8 @@
 <script>
   const SUPABASE_URL = 'https://pmxtljgnnvzxyanesvqu.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_CkTeNzIdf8c3Du2EiguLZg_cgdCD8Px';
-  const GOOGLE_DRIVE_API_KEY = 'AIzaSyCNouqYL6YaZ044Lqp290bTqIcUXKEW8r8';
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzx5cQTCOY-UGcKKj8m8v-Zn_KaZfFDM9gXWY5aNbRbHhyHkhnbsIGUf-EUukKccnbuGw/exec';
+  // URL EXACTA DE TU DEPLOYMENT ACTIVO (Version 9)
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby573h9JNPoWLPgF3tsUd762KEHWO3J4RNP0ZYQEyPXmdNruSHBOTfWMIDJc8Nmz5CTwA/exec';
 
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const audio = document.getElementById('audioEl');
@@ -662,31 +663,42 @@
   let isDownloadingOffline = false;
   let activePlayRequestId = 0;
 
-  // Token OAuth opcional con timeout corto de 2.5s para que jamás cuelgue la app
+  // ==========================================
+  // GESTIÓN DE TOKEN OAUTH2 (Desde tu Apps Script para evitar el 403 Forbidden)
+  // ==========================================
   let cachedDriveToken = null;
   let tokenExpireTime = 0;
+  let tokenPromise = null;
 
-  async function getValidDriveToken() {
-    if (cachedDriveToken && Date.now() < tokenExpireTime) {
+  async function getValidDriveToken(forceRefresh = false) {
+    if (!forceRefresh && cachedDriveToken && Date.now() < tokenExpireTime) {
       return cachedDriveToken;
     }
-    try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 2500);
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'getToken' }),
-        signal: ctrl.signal
-      });
-      clearTimeout(timer);
-      const data = await res.json();
-      if (data && data.token) {
-        cachedDriveToken = data.token;
-        tokenExpireTime = Date.now() + 45 * 60 * 1000;
-        return cachedDriveToken;
+    if (!forceRefresh && tokenPromise) {
+      return tokenPromise;
+    }
+
+    tokenPromise = (async () => {
+      try {
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'getToken' })
+        });
+        const data = await res.json();
+        if (data && data.token) {
+          cachedDriveToken = data.token;
+          tokenExpireTime = Date.now() + 45 * 60 * 1000; // 45 min
+          return cachedDriveToken;
+        }
+      } catch (e) {
+        console.error('Error obteniendo token de Apps Script:', e);
+      } finally {
+        tokenPromise = null;
       }
-    } catch (e) {}
-    return null;
+      return null;
+    })();
+
+    return tokenPromise;
   }
 
   // ==========================================
@@ -803,34 +815,50 @@
     } catch (e) {}
   }
 
-  // Descarga Simple GET (sin headers que disparen bloqueos CORS preflight)
+  // Descarga autenticada con Bearer Token de tu Apps Script (sin 403 Forbidden ni bloqueos CORS)
   async function fetchDriveAudioBlob(fileId) {
-    // 1. Petición Simple GET con API Key + acknowledgeAbuse=true
-    const apiKeyUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&acknowledgeAbuse=true&key=${GOOGLE_DRIVE_API_KEY}`;
-    try {
-      const res = await fetch(apiKeyUrl);
-      if (res.ok) {
-        const b = await res.blob();
-        if (b.size > 0) {
-          return (!b.type || b.type === 'application/octet-stream') ? new Blob([b], { type: 'audio/wav' }) : b;
-        }
-      }
-    } catch (e) {}
+    let token = await getValidDriveToken(false);
+    if (!token) {
+      token = await getValidDriveToken(true);
+    }
+    if (!token) {
+      throw new Error('No se pudo obtener autorización de Apps Script');
+    }
 
-    // 2. Respaldo con access_token en el query param (Simple GET, sin header Authorization para evitar CORS preflight)
-    const token = await getValidDriveToken();
-    if (token) {
-      const tokenUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&acknowledgeAbuse=true&access_token=${encodeURIComponent(token)}`;
-      const resTok = await fetch(tokenUrl);
-      if (resTok.ok) {
-        const b = await resTok.blob();
-        if (b.size > 0) {
-          return (!b.type || b.type === 'application/octet-stream') ? new Blob([b], { type: 'audio/wav' }) : b;
-        }
+    const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&acknowledgeAbuse=true`;
+
+    let res = await fetch(driveUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': 'Bearer ' + token
+      }
+    });
+
+    // Si el token había expirado (401), pedimos uno fresco y reintentamos
+    if (res.status === 401 || res.status === 403) {
+      const freshToken = await getValidDriveToken(true);
+      if (freshToken) {
+        res = await fetch(driveUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': 'Bearer ' + freshToken
+          }
+        });
       }
     }
 
-    throw new Error('No se pudo descargar el audio');
+    if (!res.ok) {
+      throw new Error('Drive HTTP ' + res.status);
+    }
+
+    const b = await res.blob();
+    if (!b || b.size === 0) {
+      throw new Error('Archivo vacío');
+    }
+
+    return (!b.type || b.type === 'application/octet-stream')
+      ? new Blob([b], { type: 'audio/wav' })
+      : b;
   }
 
   async function getLocalPlayableUrl(fileId) {
@@ -841,7 +869,7 @@
       // 1. Buscar primero en el disco del dispositivo (IndexedDB)
       let blob = await getBlobFromIDB(fileId);
 
-      // 2. Si no está en disco, descargarlo de Drive y guardarlo en IndexedDB
+      // 2. Si no está en disco, descargarlo con OAuth Token y guardarlo en IndexedDB
       if (!blob || blob.size === 0) {
         blob = await fetchDriveAudioBlob(fileId);
         await saveBlobToIDB(fileId, blob);
@@ -997,6 +1025,9 @@
   // CARGA DE PROYECTO Y LISTA DE TRACKS
   // ==========================================
   async function init() {
+    // Pre-obtener el token de tu Apps Script apenas abre la página
+    getValidDriveToken().catch(() => {});
+
     const urlParams = new URLSearchParams(window.location.search);
     const sharedProjectId = urlParams.get('p');
 
@@ -1147,6 +1178,7 @@
       preloadUpcomingTracks(idx);
     } catch (err) {
       if (requestId !== activePlayRequestId) return;
+      console.error('Error reproduciendo track:', err);
       isLoadingTrack = false;
       syncPlayIcons();
       renderTracks();
@@ -1170,7 +1202,6 @@
       playFromIndex(0);
       return;
     }
-    // Si no tiene un Blob URL válido cargado todavía, lo carga y reproduce
     if (!audio.src || !audio.src.startsWith('blob:')) {
       playFromIndex(currentIndex);
       return;
