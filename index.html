@@ -546,7 +546,7 @@
   <div class="action-sheet" id="actionSheet" onclick="event.stopPropagation()"></div>
 </div>
 
-<audio id="audioEl"></audio>
+<audio id="audioEl" playsinline></audio>
 
 <script>
   const SUPABASE_URL = 'https://pmxtljgnnvzxyanesvqu.supabase.co';
@@ -564,10 +564,8 @@
   let isShuffle = false;
   let isLoadingTrack = false;
 
-  // Caché en memoria de Blobs para que adelantar/atrasar sea instantáneo
   const audioBlobCache = {};
 
-  // Generar barras de forma de onda decorativas estilo [untitled]
   const waveHeights = [25, 45, 70, 40, 85, 60, 30, 90, 100, 65, 50, 80, 95, 45, 60, 75, 40, 85, 55, 35, 70, 90, 50, 65, 80, 40, 60, 30];
   function buildWaveform() {
     const wrap = document.getElementById('waveformWrap');
@@ -581,7 +579,6 @@
   }
   buildWaveform();
 
-  // Permitir tocar o arrastrar sobre la forma de onda para adelantar/atrasar
   const waveWrap = document.getElementById('waveformWrap');
   let isSeeking = false;
 
@@ -592,6 +589,7 @@
     pct = Math.max(0, Math.min(1, pct));
     audio.currentTime = pct * audio.duration;
     updateWaveformProgress(pct);
+    updatePositionState();
   }
 
   waveWrap.addEventListener('pointerdown', (e) => {
@@ -708,12 +706,17 @@
     return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   }
 
-  // Reproducción con descarga a Blob en caché para Seek (adelantar/atrasar) instantáneo
+  // Al tocar el track siempre arranca desde 0:00 (igual que Spotify)
   async function playFromIndex(idx) {
     if (tracks.length === 0) return;
 
-    if (idx === currentIndex && audio.src) {
-      togglePlay();
+    if (idx === currentIndex && audio.src && !isLoadingTrack) {
+      audio.currentTime = 0;
+      await audio.play();
+      updateWaveformProgress(0);
+      updatePositionState();
+      syncPlayIcons();
+      renderTracks();
       return;
     }
 
@@ -741,10 +744,12 @@
 
       isLoadingTrack = false;
       audio.src = blobUrl;
+      audio.currentTime = 0;
       await audio.play();
       syncPlayIcons();
       renderTracks();
       updateMediaSession(track);
+      updatePositionState();
     } catch (err) {
       isLoadingTrack = false;
       renderTracks();
@@ -771,6 +776,7 @@
     }
     syncPlayIcons();
     renderTracks();
+    updatePositionState();
   }
 
   function syncPlayIcons() {
@@ -806,22 +812,39 @@
     if (tracks.length === 0) return;
     if (audio.currentTime > 3) {
       audio.currentTime = 0;
+      updatePositionState();
     } else {
       playFromIndex((currentIndex - 1 + tracks.length) % tracks.length);
     }
   }
 
   audio.addEventListener('ended', nextTrack);
-  audio.addEventListener('play', syncPlayIcons);
-  audio.addEventListener('pause', syncPlayIcons);
+  audio.addEventListener('play', () => { syncPlayIcons(); updatePositionState(); });
+  audio.addEventListener('pause', () => { syncPlayIcons(); updatePositionState(); });
+  audio.addEventListener('loadedmetadata', updatePositionState);
 
   audio.addEventListener('timeupdate', () => {
     if (!audio.duration || isSeeking) return;
     const pct = audio.currentTime / audio.duration;
     updateWaveformProgress(pct);
+    updatePositionState();
   });
 
-  // Menús estilo Action Sheet (3 puntitos)
+  // Sincroniza la barra de progreso en la pantalla de bloqueo de iOS
+  function updatePositionState() {
+    if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+        try {
+          navigator.mediaSession.setPositionState({
+            duration: audio.duration,
+            playbackRate: audio.playbackRate || 1,
+            position: Math.min(audio.currentTime || 0, audio.duration)
+          });
+        } catch (e) {}
+      }
+    }
+  }
+
   function openModal(html) {
     document.getElementById('actionSheet').innerHTML = `<div class="sheet-handle"></div>` + html;
     document.getElementById('modalBackdrop').classList.add('open');
@@ -995,6 +1018,7 @@
     await loadProject(currentProject.id);
   }
 
+  // Controles de pantalla de bloqueo iOS (incluye barra de tiempo seekto)
   function updateMediaSession(track) {
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -1003,10 +1027,43 @@
         album: currentProject.title,
         artwork: currentProject.cover_url ? [{ src: currentProject.cover_url, sizes: '512x512', type: 'image/jpeg' }] : []
       });
-      navigator.mediaSession.setActionHandler('play', togglePlay);
-      navigator.mediaSession.setActionHandler('pause', togglePlay);
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        audio.play();
+        syncPlayIcons();
+        renderTracks();
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        audio.pause();
+        syncPlayIcons();
+        renderTracks();
+      });
       navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
       navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
+
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.fastSeek && 'fastSeek' in audio) {
+          audio.fastSeek(details.seekTime);
+        } else {
+          audio.currentTime = details.seekTime;
+        }
+        if (audio.duration) {
+          updateWaveformProgress(audio.currentTime / audio.duration);
+        }
+        updatePositionState();
+      });
+
+      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+        const skip = details.seekOffset || 10;
+        audio.currentTime = Math.max(0, audio.currentTime - skip);
+        updatePositionState();
+      });
+
+      navigator.mediaSession.setActionHandler('seekforward', (details) => {
+        const skip = details.seekOffset || 10;
+        audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + skip);
+        updatePositionState();
+      });
     }
   }
 
