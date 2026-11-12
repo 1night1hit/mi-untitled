@@ -359,11 +359,18 @@
   <!-- Lista de canciones -->
   <div id="trackList" class="track-list"></div>
 
-  <!-- Subida directa desde el dispositivo -->
+  <!-- Subida directa desde el dispositivo (solo MP3 y WAV) -->
   <div class="upload-box">
-    <input type="file" id="audioFileInput" accept="audio/*" multiple style="display:none;" onchange="uploadFilesFromDevice(event)" />
+    <input 
+      type="file" 
+      id="audioFileInput" 
+      accept=".mp3,.wav,audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/wave" 
+      multiple 
+      style="display:none;" 
+      onchange="uploadFilesFromDevice(event)" 
+    />
     <button class="btn-primary" style="width:100%;" id="uploadBtn" onclick="document.getElementById('audioFileInput').click()">
-      + Subir audios desde el dispositivo
+      + Subir MP3 o WAV
     </button>
   </div>
 </div>
@@ -489,6 +496,13 @@
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      const ext = file.name.split('.').pop().toLowerCase();
+
+      if (ext !== 'mp3' && ext !== 'wav') {
+        alert(`El archivo "${file.name}" no es MP3 ni WAV y fue omitido.`);
+        continue;
+      }
+
       btn.textContent = `Subiendo ${i + 1} de ${files.length}...`;
 
       try {
@@ -498,11 +512,13 @@
           reader.readAsDataURL(file);
         });
 
+        const mimeType = ext === 'wav' ? 'audio/wav' : 'audio/mpeg';
+
         const response = await fetch(APPS_SCRIPT_URL, {
           method: 'POST',
           body: JSON.stringify({
             fileName: file.name,
-            mimeType: file.type || 'audio/mpeg',
+            mimeType: mimeType,
             base64: base64
           })
         });
@@ -521,12 +537,12 @@
           alert('Error subiendo ' + file.name + ': ' + result.message);
         }
       } catch (err) {
-        alert('Error de conexión subiendo ' + file.name);
+        alert('Error de conexión subiendo ' + file.name + ' (verificá que el WAV no supere los 35 MB).');
       }
     }
 
     btn.disabled = false;
-    btn.textContent = '+ Subir audios desde el dispositivo';
+    btn.textContent = '+ Subir MP3 o WAV';
     event.target.value = '';
     await loadProject(currentProject.id);
   }
