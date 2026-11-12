@@ -65,7 +65,7 @@
     }
     .circle-btn:active { transform: scale(0.93); background: var(--surface-light); }
     .circle-btn.active { background: #ffffff; color: #000000; }
-    .circle-btn.downloaded { background: rgba(29, 185, 84, 0.2); color: var(--accent-green); }
+    .circle-btn.downloaded { background: rgba(29, 185, 84, 0.22); color: var(--accent-green); }
 
     .badge-one {
       position: absolute;
@@ -662,39 +662,82 @@
   let isDownloadingOffline = false;
   let activePlayRequestId = 0;
 
+  // Token OAuth oficial provisto por tu Apps Script para evitar bloqueos 'Failed to fetch' de Drive
+  let cachedDriveToken = null;
+  let tokenExpireTime = 0;
+
+  async function getValidDriveToken(forceRefresh = false) {
+    if (!forceRefresh && cachedDriveToken && Date.now() < tokenExpireTime) {
+      return cachedDriveToken;
+    }
+    try {
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'getToken' })
+      });
+      const data = await res.json();
+      if (data && data.token) {
+        cachedDriveToken = data.token;
+        tokenExpireTime = Date.now() + 45 * 60 * 1000; // 45 minutos
+        return cachedDriveToken;
+      }
+    } catch (e) {}
+    return null;
+  }
+
   // ==========================================
-  // BASE DE DATOS OFFLINE (IndexedDB para guardar Blobs de audio reales)
+  // ALMACENAMIENTO OFFLINE PERSISTENTE (ArrayBuffer en IndexedDB)
   // ==========================================
-  const IDB_NAME = '1n1h_offline_db';
-  const IDB_STORE = 'audio_blobs';
+  const IDB_NAME = '1n1h_offline_v2';
+  const IDB_STORE = 'audio_files';
+  let idbInstance = null;
   const memoryBlobUrls = {};
   const inFlightDownloads = {};
   const offlineSavedSet = new Set();
 
+  // Solicitar almacenamiento persistente al navegador para que no borre las descargas
+  if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().catch(() => {});
+  }
+
   function openAudioDB() {
+    if (idbInstance) return Promise.resolve(idbInstance);
     return new Promise((resolve, reject) => {
       if (!('indexedDB' in window)) return reject(new Error('No IndexedDB'));
       const req = indexedDB.open(IDB_NAME, 1);
       req.onupgradeneeded = (e) => {
-        const idb = e.target.result;
-        if (!idb.objectStoreNames.contains(IDB_STORE)) {
-          idb.createObjectStore(IDB_STORE);
+        const database = e.target.result;
+        if (!database.objectStoreNames.contains(IDB_STORE)) {
+          database.createObjectStore(IDB_STORE);
         }
       };
-      req.onsuccess = () => resolve(req.result);
+      req.onsuccess = () => {
+        idbInstance = req.result;
+        idbInstance.onclose = () => { idbInstance = null; };
+        resolve(idbInstance);
+      };
       req.onerror = () => reject(req.error);
     });
   }
 
   async function getBlobFromIDB(fileId) {
     try {
-      const idb = await openAudioDB();
-      return await new Promise((resolve, reject) => {
-        const tx = idb.transaction(IDB_STORE, 'readonly');
+      const database = await openAudioDB();
+      const record = await new Promise((resolve) => {
+        const tx = database.transaction(IDB_STORE, 'readonly');
         const req = tx.objectStore(IDB_STORE).get(fileId);
         req.onsuccess = () => resolve(req.result || null);
         req.onerror = () => resolve(null);
       });
+      if (!record) return null;
+      // Soportar tanto registros nuevos { buffer, type } como Blobs directos
+      if (record.buffer && record.buffer.byteLength > 0) {
+        return new Blob([record.buffer], { type: record.type || 'audio/wav' });
+      }
+      if (record instanceof Blob && record.size > 0) {
+        return record;
+      }
+      return null;
     } catch (e) {
       return null;
     }
@@ -702,10 +745,16 @@
 
   async function saveBlobToIDB(fileId, blob) {
     try {
-      const idb = await openAudioDB();
+      const buffer = await blob.arrayBuffer();
+      if (!buffer || buffer.byteLength === 0) return;
+      const database = await openAudioDB();
       await new Promise((resolve, reject) => {
-        const tx = idb.transaction(IDB_STORE, 'readwrite');
-        tx.objectStore(IDB_STORE).put(blob, fileId);
+        const tx = database.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put({
+          buffer: buffer,
+          type: blob.type || 'audio/wav',
+          savedAt: Date.now()
+        }, fileId);
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
@@ -715,30 +764,36 @@
 
   async function deleteBlobFromIDB(fileId) {
     try {
-      const idb = await openAudioDB();
+      const database = await openAudioDB();
       await new Promise((resolve) => {
-        const tx = idb.transaction(IDB_STORE, 'readwrite');
+        const tx = database.transaction(IDB_STORE, 'readwrite');
         tx.objectStore(IDB_STORE).delete(fileId);
         tx.oncomplete = () => resolve();
         tx.onerror = () => resolve();
       });
       offlineSavedSet.delete(fileId);
+      if (memoryBlobUrls[fileId]) {
+        URL.revokeObjectURL(memoryBlobUrls[fileId]);
+        delete memoryBlobUrls[fileId];
+      }
     } catch (e) {}
   }
 
   async function syncOfflineStatus() {
     try {
-      const idb = await openAudioDB();
+      const database = await openAudioDB();
       const keys = await new Promise((resolve) => {
-        const tx = idb.transaction(IDB_STORE, 'readonly');
+        const tx = database.transaction(IDB_STORE, 'readonly');
         const req = tx.objectStore(IDB_STORE).getAllKeys();
         req.onsuccess = () => resolve(req.result || []);
         req.onerror = () => resolve([]);
       });
-      const keySet = new Set(keys);
+      const keySet = new Set(keys.map(String));
       offlineSavedSet.clear();
       tracks.forEach(t => {
-        if (keySet.has(t.drive_file_id)) offlineSavedSet.add(t.drive_file_id);
+        if (keySet.has(String(t.drive_file_id))) {
+          offlineSavedSet.add(t.drive_file_id);
+        }
       });
       const dlBtn = document.getElementById('downloadOfflineBtn');
       const allSaved = tracks.length > 0 && tracks.every(t => offlineSavedSet.has(t.drive_file_id));
@@ -746,35 +801,48 @@
     } catch (e) {}
   }
 
-  // Descarga tolerante a fallos (con acknowledgeAbuse=true para WAVs grandes >25MB)
+  // Descarga autenticada con OAuth Token (evita el bloqueo 'Failed to fetch' de la API Key pública)
   async function fetchDriveAudioBlob(fileId) {
-    // URL principal con acknowledgeAbuse=true (evita error 403 de escaneo de virus en WAVs pesados)
-    const primaryUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&acknowledgeAbuse=true&key=${GOOGLE_DRIVE_API_KEY}`;
+    const token = await getValidDriveToken();
 
-    let res = await fetch(primaryUrl, { mode: 'cors', credentials: 'omit' });
-
-    // Si falla por permisos del archivo, pedimos al Apps Script que lo haga público y reintentamos
-    if (!res.ok) {
+    // Intento 1: Con Token OAuth2 de tu cuenta (sin límites de cuota ni bloqueos de antivirus)
+    if (token) {
       try {
-        await fetch(APPS_SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'makePublic', fileId: fileId })
+        const authUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&acknowledgeAbuse=true`;
+        const res = await fetch(authUrl, {
+          headers: { Authorization: 'Bearer ' + token }
         });
-        res = await fetch(primaryUrl, { mode: 'cors', credentials: 'omit' });
+        if (res.ok) {
+          const b = await res.blob();
+          if (b.size > 0) {
+            return (!b.type || b.type === 'application/octet-stream') ? new Blob([b], { type: 'audio/wav' }) : b;
+          }
+        }
       } catch (e) {}
     }
 
-    if (!res.ok) {
-      let errDetail = `HTTP ${res.status}`;
+    // Intento 2: Renovar token y reintentar
+    const freshToken = await getValidDriveToken(true);
+    if (freshToken) {
       try {
-        const errJson = await res.json();
-        if (errJson?.error?.message) errDetail = errJson.error.message;
+        const authUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&acknowledgeAbuse=true`;
+        const res = await fetch(authUrl, {
+          headers: { Authorization: 'Bearer ' + freshToken }
+        });
+        if (res.ok) {
+          const b = await res.blob();
+          if (b.size > 0) {
+            return (!b.type || b.type === 'application/octet-stream') ? new Blob([b], { type: 'audio/wav' }) : b;
+          }
+        }
       } catch (e) {}
-      throw new Error(errDetail);
     }
 
-    const rawBlob = await res.blob();
-    // Asegurar MIME type de audio válido para que iOS/Chrome nunca lo rechacen
+    // Intento 3: Con API Key pública
+    const publicUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&acknowledgeAbuse=true&key=${GOOGLE_DRIVE_API_KEY}`;
+    const resPub = await fetch(publicUrl, { mode: 'cors', credentials: 'omit' });
+    if (!resPub.ok) throw new Error('HTTP ' + resPub.status);
+    const rawBlob = await resPub.blob();
     if (!rawBlob.type || rawBlob.type === 'application/octet-stream') {
       return new Blob([rawBlob], { type: 'audio/wav' });
     }
@@ -786,10 +854,10 @@
     if (inFlightDownloads[fileId]) return inFlightDownloads[fileId];
 
     inFlightDownloads[fileId] = (async () => {
-      // 1. Revisar si ya está guardado en IndexedDB del teléfono/PC
+      // 1. Verificar si ya está guardado en el disco del dispositivo (IndexedDB)
       let blob = await getBlobFromIDB(fileId);
 
-      // 2. Si no está en disco, descargarlo de Google Drive y guardarlo en IndexedDB
+      // 2. Si no está en disco, descargarlo de Drive y guardarlo permanentemente
       if (!blob || blob.size === 0) {
         blob = await fetchDriveAudioBlob(fileId);
         await saveBlobToIDB(fileId, blob);
@@ -811,9 +879,9 @@
     }
   }
 
-  // Pre-carga silenciosa del siguiente track para que no haya pausa entre canciones
+  // Pre-carga silenciosa del próximo track (solo 1 a la vez para no saturar la red)
   function preloadUpcomingTracks(fromIdx) {
-    if (tracks.length <= 1) return;
+    if (tracks.length <= 1 || isDownloadingOffline) return;
     const nextIdx = (fromIdx + 1) % tracks.length;
     const nextTrackObj = tracks[nextIdx];
     if (nextTrackObj && !memoryBlobUrls[nextTrackObj.drive_file_id] && !inFlightDownloads[nextTrackObj.drive_file_id]) {
@@ -826,12 +894,15 @@
     }
   }
 
+  // Descargar únicamente los tracks que falten en el dispositivo
   async function downloadEntirePlaylist() {
     if (isDownloadingOffline || tracks.length === 0) return;
 
-    const allAlreadySaved = tracks.every(t => offlineSavedSet.has(t.drive_file_id));
-    if (allAlreadySaved) {
-      if (confirm('Esta playlist ya está guardada offline en tu dispositivo. ¿Querés borrar los audios descargados para liberar espacio?')) {
+    await syncOfflineStatus();
+    const missingTracks = tracks.filter(t => !offlineSavedSet.has(t.drive_file_id));
+
+    if (missingTracks.length === 0) {
+      if (confirm('Todos los tracks de esta playlist ya están guardados offline en tu dispositivo.\n\n¿Querés borrar las descargas para liberar espacio?')) {
         for (const t of tracks) {
           await deleteBlobFromIDB(t.drive_file_id);
         }
@@ -846,28 +917,29 @@
     const bannerText = document.getElementById('offlineBannerText');
     banner.classList.add('visible');
 
-    let successCount = 0;
-    for (let i = 0; i < tracks.length; i++) {
-      const t = tracks[i];
-      if (offlineSavedSet.has(t.drive_file_id)) {
-        successCount++;
-        continue;
-      }
-
-      bannerText.textContent = `Descargando ${i + 1} de ${tracks.length}: ${t.title}...`;
+    let completed = tracks.length - missingTracks.length;
+    for (let i = 0; i < missingTracks.length; i++) {
+      const t = missingTracks[i];
+      bannerText.textContent = `Guardando offline (${completed + 1}/${tracks.length}): ${t.title}...`;
       try {
         await getLocalPlayableUrl(t.drive_file_id);
-        successCount++;
+        completed++;
+        await syncOfflineStatus();
         renderTracks();
       } catch (err) {
-        console.warn('No se pudo cachear:', t.title, err);
+        console.warn('No se pudo guardar offline:', t.title, err);
       }
     }
 
     isDownloadingOffline = false;
-    bannerText.textContent = `✓ ${successCount}/${tracks.length} tracks listos para escuchar sin conexión`;
     await syncOfflineStatus();
     renderTracks();
+
+    if (completed === tracks.length) {
+      bannerText.textContent = `✓ Los ${tracks.length} tracks quedaron guardados en tu dispositivo`;
+    } else {
+      bannerText.textContent = `✓ ${completed} de ${tracks.length} tracks guardados (tocá ↓ para reintentar los restantes)`;
+    }
     setTimeout(() => banner.classList.remove('visible'), 3500);
   }
 
@@ -941,6 +1013,9 @@
   // CARGA DE PROYECTO Y LISTA DE TRACKS
   // ==========================================
   async function init() {
+    // Pre-calentar token de Drive en segundo plano al abrir la app
+    getValidDriveToken().catch(() => {});
+
     const urlParams = new URLSearchParams(window.location.search);
     const sharedProjectId = urlParams.get('p');
 
@@ -1016,7 +1091,7 @@
         ? `<div class="eq-bars ${isPaused ? 'paused' : ''}"><span></span><span></span><span></span><span></span></div>`
         : `${idx + 1}`;
 
-      const offlineBadge = isSavedOffline ? `<span class="offline-dot" title="Disponible offline">↓</span>` : '';
+      const offlineBadge = isSavedOffline ? `<span class="offline-dot" title="Guardado en dispositivo">↓</span>` : '';
 
       row.innerHTML = `
         <div class="track-index">${indexHtml}</div>
@@ -1040,7 +1115,7 @@
   }
 
   // ==========================================
-  // MOTOR DE REPRODUCCIÓN (Con desbloqueo iOS y Fallback)
+  // MOTOR DE REPRODUCCIÓN SIN VENTANAS DE ERROR
   // ==========================================
   async function playFromIndex(idx) {
     if (tracks.length === 0 || idx < 0 || idx >= tracks.length) return;
@@ -1063,7 +1138,6 @@
     const isAlreadyLocal = Boolean(memoryBlobUrls[track.drive_file_id] || offlineSavedSet.has(track.drive_file_id));
     isLoadingTrack = !isAlreadyLocal;
 
-    // Pausar el anterior limpiamente antes de cargar el nuevo
     audio.pause();
 
     document.getElementById('floatingPlayer').classList.add('visible');
@@ -1083,6 +1157,7 @@
       audio.currentTime = 0;
       await audio.play();
 
+      await syncOfflineStatus();
       syncPlayIcons();
       renderTracks();
       updateMediaSession(track);
@@ -1091,11 +1166,15 @@
     } catch (err) {
       if (requestId !== activePlayRequestId) return;
 
-      // Fallback directo si fetch() fue bloqueado por algún motivo externo
+      // Respaldo de streaming directo silencioso (jamás lanza alert ni corta la experiencia)
       try {
-        const directFallbackUrl = `https://www.googleapis.com/drive/v3/files/${track.drive_file_id}?alt=media&acknowledgeAbuse=true&key=${GOOGLE_DRIVE_API_KEY}`;
+        const token = cachedDriveToken || await getValidDriveToken();
+        const streamUrl = token
+          ? `https://www.googleapis.com/drive/v3/files/${track.drive_file_id}?alt=media&acknowledgeAbuse=true&access_token=${encodeURIComponent(token)}`
+          : `https://www.googleapis.com/drive/v3/files/${track.drive_file_id}?alt=media&acknowledgeAbuse=true&key=${GOOGLE_DRIVE_API_KEY}`;
+
         isLoadingTrack = false;
-        audio.src = directFallbackUrl;
+        audio.src = streamUrl;
         audio.currentTime = 0;
         await audio.play();
         syncPlayIcons();
@@ -1106,9 +1185,6 @@
         syncPlayIcons();
         renderTracks();
         document.getElementById('miniTime').textContent = 'Tocá ▶ para reproducir';
-        if (fallbackErr.name !== 'NotAllowedError' && fallbackErr.name !== 'AbortError') {
-          alert(`No se pudo cargar "${track.title}" (${err.message}).`);
-        }
       }
     }
   }
@@ -1177,7 +1253,6 @@
     } else {
       const nextIdx = currentIndex + 1;
       if (nextIdx >= tracks.length && repeatMode === 0 && !isShuffle) {
-        // Fin de la lista si Repeat está desactivado: vuelve al primero
         playFromIndex(0);
       } else {
         playFromIndex(nextIdx % tracks.length);
@@ -1249,7 +1324,7 @@
       <button class="sheet-btn" onclick="promptRenameTrack(${idx})">Renombrar track</button>
       ${idx > 0 ? `<button class="sheet-btn" onclick="moveTrackOrder(${idx}, -1)">↑ Subir una posición</button>` : ''}
       ${idx < tracks.length - 1 ? `<button class="sheet-btn" onclick="moveTrackOrder(${idx}, 1)">↓ Bajar una posición</button>` : ''}
-      <button class="sheet-btn" onclick="downloadSingleTrackFile(${idx})">Guardar archivo de audio</button>
+      <button class="sheet-btn" onclick="downloadSingleTrackFile(${idx})">Descargar archivo de audio</button>
       <button class="sheet-btn danger" onclick="deleteTrack('${track.id}')">Eliminar del proyecto</button>
     `);
   }
@@ -1443,6 +1518,11 @@
         });
         const initData = await initRes.json();
 
+        if (initData.token) {
+          cachedDriveToken = initData.token;
+          tokenExpireTime = Date.now() + 45 * 60 * 1000;
+        }
+
         if (initData.status !== 'ok' || !initData.uploadUrl) {
           throw new Error(initData.message || 'No se pudo iniciar la subida');
         }
@@ -1451,7 +1531,7 @@
           btn.textContent = `Subiendo ${i + 1}/${files.length}: ${pct}%`;
         });
 
-        // Guardar también en el almacenamiento offline de este dispositivo para no tener que re-descargarlo
+        // Guardar permanentemente como ArrayBuffer en el dispositivo al subir
         await saveBlobToIDB(driveFile.id, file);
         memoryBlobUrls[driveFile.id] = URL.createObjectURL(file);
 
