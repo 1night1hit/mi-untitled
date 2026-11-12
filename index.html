@@ -665,7 +665,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
         <span id="repeatOneBadge" class="badge-one" style="display:none;">1</span>
       </button>
-      <button class="circle-btn" id="shuffleBtn" onclick="toggleShuffle()" title="Aleatorio">
+      <button class="circle-btn" id="shuffleBtn" onclick="toggleShuffle()" title="Aleatorio sin repetición">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
       </button>
       <button class="big-play-btn" id="mainPlayBtn" onclick="handleMainPlay()" title="Reproducir / Pausar">
@@ -735,13 +735,65 @@
   let tracks = [];
   let currentIndex = -1;
   let isShuffle = false;
-  let repeatMode = 0; // 0 = off, 1 = repeat all, 2 = repeat one
+  let shuffleQueue = []; // Cola barajada sin repeticiones (Fisher-Yates)
+  let shufflePos = -1;   // Posición actual dentro de la cola aleatoria
+  let repeatMode = 0;    // 0 = off, 1 = repeat all, 2 = repeat one
   let isLoadingTrack = false;
   let isDownloadingOffline = false;
   let isReorderMode = false;
   let hasOrderChanges = false;
   let draggedIdx = null;
   let activePlayRequestId = 0;
+
+  // ==========================================
+  // COLA ALEATORIA SIN REPETICIÓN (Algoritmo Fisher-Yates)
+  // ==========================================
+  function generateShuffleQueue(startTrackIndex = -1) {
+    const indices = tracks.map((_, i) => i);
+    if (indices.length === 0) {
+      shuffleQueue = [];
+      shufflePos = -1;
+      return;
+    }
+
+    // Si hay una canción sonando o elegida para arrancar, ponerla primera en la cola
+    let remaining = indices;
+    if (startTrackIndex >= 0 && startTrackIndex < tracks.length) {
+      remaining = indices.filter(i => i !== startTrackIndex);
+    }
+
+    // Mezclar el resto sin repeticiones con Fisher-Yates
+    for (let i = remaining.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = remaining[i];
+      remaining[i] = remaining[j];
+      remaining[j] = temp;
+    }
+
+    if (startTrackIndex >= 0 && startTrackIndex < tracks.length) {
+      shuffleQueue = [startTrackIndex, ...remaining];
+      shufflePos = 0;
+    } else {
+      shuffleQueue = remaining;
+      shufflePos = -1;
+    }
+  }
+
+  // Calcula cuál es el próximo índice a reproducir (para pre-cargar en RAM y que no se corte en 2do plano)
+  function peekNextTrackIndex() {
+    if (tracks.length === 0) return -1;
+    if (isShuffle) {
+      if (shuffleQueue.length !== tracks.length) {
+        generateShuffleQueue(currentIndex);
+      }
+      if (shufflePos + 1 < shuffleQueue.length) {
+        return shuffleQueue[shufflePos + 1];
+      }
+      return shuffleQueue[0] ?? 0;
+    } else {
+      return (currentIndex + 1) % tracks.length;
+    }
+  }
 
   // ==========================================
   // GESTIÓN DE TOKEN OAUTH2 (Desde tu Apps Script)
@@ -895,6 +947,20 @@
     } catch (e) {}
   }
 
+  // Hidrata en RAM los tracks guardados en IndexedDB para que el cambio en 2do plano de iOS sea 100% sincrónico
+  async function hydrateOfflineBlobsIntoRAM() {
+    for (const t of tracks) {
+      if (offlineSavedSet.has(t.drive_file_id) && !memoryBlobUrls[t.drive_file_id]) {
+        try {
+          const blob = await getBlobFromIDB(t.drive_file_id);
+          if (blob && blob.size > 0) {
+            memoryBlobUrls[t.drive_file_id] = URL.createObjectURL(blob);
+          }
+        } catch (e) {}
+      }
+    }
+  }
+
   async function fetchDriveAudioBlob(fileId) {
     let token = await getValidDriveToken(false);
     if (!token) {
@@ -967,9 +1033,12 @@
     }
   }
 
-  function preloadUpcomingTracks(fromIdx) {
+  // Pre-carga en RAM el próximo track real (según orden normal o según la cola aleatoria)
+  function preloadUpcomingTracks() {
     if (tracks.length <= 1 || isDownloadingOffline) return;
-    const nextIdx = (fromIdx + 1) % tracks.length;
+    const nextIdx = peekNextTrackIndex();
+    if (nextIdx === -1) return;
+
     const nextTrackObj = tracks[nextIdx];
     if (nextTrackObj && !memoryBlobUrls[nextTrackObj.drive_file_id] && !inFlightDownloads[nextTrackObj.drive_file_id]) {
       getLocalPlayableUrl(nextTrackObj.drive_file_id)
@@ -1143,12 +1212,17 @@
       .order('created_at', { ascending: true });
 
     tracks = trackData || [];
+    if (isShuffle) {
+      generateShuffleQueue(currentIndex);
+    }
 
     const artistText = project.artist ? `${project.artist} · ` : '';
     document.getElementById('projectSubtitleDisplay').textContent = `${artistText}${tracks.length} tracks`;
 
     await syncOfflineStatus();
     renderTracks();
+    // Cargar en segundo plano los Blobs guardados en IndexedDB a la memoria RAM para reproducción continua sin cortes
+    hydrateOfflineBlobsIntoRAM().catch(() => {});
   }
 
   function formatRelativeDate(isoString) {
@@ -1186,7 +1260,7 @@
         row.addEventListener('drop', (e) => onDrop(e, idx));
         row.addEventListener('dragend', () => onDragEnd());
       } else {
-        row.onclick = () => playFromIndex(idx);
+        row.onclick = () => selectTrackFromList(idx);
       }
 
       const indexHtml = (isCurrent && !isReorderMode)
@@ -1226,8 +1300,17 @@
     });
   }
 
+  // Cuando el usuario toca manualmente una canción de la lista
+  function selectTrackFromList(idx) {
+    if (isShuffle) {
+      // Si está en modo aleatorio, armamos una nueva cola sin repetición empezando por la canción que tocó
+      generateShuffleQueue(idx);
+    }
+    playFromIndex(idx);
+  }
+
   // ==========================================
-  // FUNCIONES PARA REORDENAR TRACKS (Flechas, Drag & Drop y Posición Exacta)
+  // FUNCIONES PARA REORDENAR TRACKS
   // ==========================================
   async function toggleReorderMode() {
     const btn = document.getElementById('reorderToggleBtn');
@@ -1246,6 +1329,7 @@
       btn.disabled = true;
       if (hasOrderChanges) {
         await persistAllTrackOrders();
+        if (isShuffle) generateShuffleQueue(currentIndex);
       }
       isReorderMode = false;
       hasOrderChanges = false;
@@ -1271,7 +1355,6 @@
     renderTracks();
   }
 
-  // Guarda el orden secuencial (0, 1, 2, 3...) de toda la lista en Supabase
   async function persistAllTrackOrders() {
     try {
       const updates = tracks.map((t, index) => {
@@ -1284,7 +1367,6 @@
     }
   }
 
-  // Drag & Drop en PC
   function onDragStart(e, idx, row) {
     draggedIdx = idx;
     setTimeout(() => row.classList.add('dragging'), 0);
@@ -1311,7 +1393,6 @@
     });
   }
 
-  // Drag & Drop táctil para iPhone / Android desde el ícono ≡
   function startTouchReorder(e, startIdx) {
     e.preventDefault();
     let currentDragIdx = startIdx;
@@ -1347,11 +1428,12 @@
   }
 
   // ==========================================
-  // MOTOR DE REPRODUCCIÓN (Siempre vía Blob URL válido)
+  // MOTOR DE REPRODUCCIÓN (Optimizado para Background Audio en iOS)
   // ==========================================
   async function playFromIndex(idx) {
     if (tracks.length === 0 || idx < 0 || idx >= tracks.length) return;
 
+    // Si tocás el mismo track que ya está sonando, reinicia desde 0:00
     if (idx === currentIndex && audio.src && audio.src.startsWith('blob:') && !isLoadingTrack) {
       audio.currentTime = 0;
       audio.play().catch(() => {});
@@ -1366,17 +1448,33 @@
     const requestId = ++activePlayRequestId;
     currentIndex = idx;
     const track = tracks[currentIndex];
-    const isAlreadyLocal = Boolean(memoryBlobUrls[track.drive_file_id] || offlineSavedSet.has(track.drive_file_id));
-    isLoadingTrack = !isAlreadyLocal;
-
-    audio.pause();
-    audio.removeAttribute('src');
+    const cachedRamUrl = memoryBlobUrls[track.drive_file_id];
 
     document.getElementById('floatingPlayer').classList.add('visible');
     document.getElementById('miniTitle').textContent = track.title;
-    document.getElementById('miniTime').textContent = isLoadingTrack ? 'Cargando...' : '0:00 / 0:00';
     document.getElementById('miniCover').src = currentProject.cover_url || 'icon.png';
     updateWaveformProgress(0);
+
+    // RUTA RÁPIDA SINCRÓNICA (Fundamental para que iOS NO corte la música cuando pasa al siguiente tema con pantalla bloqueada)
+    if (cachedRamUrl) {
+      isLoadingTrack = false;
+      audio.src = cachedRamUrl;
+      audio.currentTime = 0;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((e) => console.warn('Play error:', e));
+      }
+      updateMediaSession(track);
+      syncPlayIcons();
+      renderTracks();
+      updatePositionState();
+      preloadUpcomingTracks();
+      return;
+    }
+
+    // RUTA ASÍNCRONA (Si el track todavía no estaba en RAM y hay que leerlo de IndexedDB o Drive)
+    isLoadingTrack = true;
+    document.getElementById('miniTime').textContent = 'Cargando...';
     syncPlayIcons();
     renderTracks();
 
@@ -1389,12 +1487,12 @@
       audio.currentTime = 0;
       await audio.play();
 
+      updateMediaSession(track);
       await syncOfflineStatus();
       syncPlayIcons();
       renderTracks();
-      updateMediaSession(track);
       updatePositionState();
-      preloadUpcomingTracks(idx);
+      preloadUpcomingTracks();
     } catch (err) {
       if (requestId !== activePlayRequestId) return;
       console.error('Error reproduciendo track:', err);
@@ -1408,8 +1506,12 @@
   function handleMainPlay() {
     if (tracks.length === 0) return;
     if (currentIndex === -1) {
-      if (isShuffle) nextTrack();
-      else playFromIndex(0);
+      if (isShuffle) {
+        generateShuffleQueue(-1);
+        nextTrack();
+      } else {
+        playFromIndex(0);
+      }
     } else {
       togglePlay();
     }
@@ -1418,7 +1520,7 @@
   function togglePlay() {
     if (tracks.length === 0) return;
     if (currentIndex === -1) {
-      playFromIndex(0);
+      handleMainPlay();
       return;
     }
     if (!audio.src || !audio.src.startsWith('blob:')) {
@@ -1443,11 +1545,24 @@
     document.getElementById('mainPlayIcon').innerHTML = isPlaying ? pauseSvg : playSvg;
     document.getElementById('miniPlayPauseIcon').innerHTML = isPlaying ? pauseSvg : playSvg;
     document.getElementById('miniCover').classList.toggle('spinning', isPlaying);
+
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
   }
 
   function toggleShuffle() {
     isShuffle = !isShuffle;
     document.getElementById('shuffleBtn').classList.toggle('active', isShuffle);
+    if (isShuffle) {
+      // Armar el mazo mezclado sin repeticiones dejando la canción actual como la primera
+      generateShuffleQueue(currentIndex);
+      preloadUpcomingTracks();
+    } else {
+      shuffleQueue = [];
+      shufflePos = -1;
+      preloadUpcomingTracks();
+    }
   }
 
   function toggleRepeat() {
@@ -1460,19 +1575,29 @@
 
   function nextTrack() {
     if (tracks.length === 0) return;
-    if (isShuffle && tracks.length > 1) {
-      let rand;
-      do {
-        rand = Math.floor(Math.random() * tracks.length);
-      } while (rand === currentIndex);
-      playFromIndex(rand);
-    } else {
-      const nextIdx = currentIndex + 1;
-      if (nextIdx >= tracks.length && repeatMode === 0 && !isShuffle) {
-        playFromIndex(0);
-      } else {
-        playFromIndex(nextIdx % tracks.length);
+
+    if (isShuffle) {
+      if (shuffleQueue.length !== tracks.length) {
+        generateShuffleQueue(currentIndex);
       }
+      shufflePos++;
+      // Si ya sonaron TODAS las canciones sin repetir ninguna, barajamos un mazo nuevo
+      if (shufflePos >= shuffleQueue.length) {
+        const lastPlayed = currentIndex;
+        generateShuffleQueue(-1);
+        // Evitar que la primera del nuevo mazo sea justo la última que acaba de terminar
+        if (shuffleQueue.length > 1 && shuffleQueue[0] === lastPlayed) {
+          const swapIdx = 1 + Math.floor(Math.random() * (shuffleQueue.length - 1));
+          const tmp = shuffleQueue[0];
+          shuffleQueue[0] = shuffleQueue[swapIdx];
+          shuffleQueue[swapIdx] = tmp;
+        }
+        shufflePos = 0;
+      }
+      playFromIndex(shuffleQueue[shufflePos]);
+    } else {
+      const nextIdx = (currentIndex + 1) % tracks.length;
+      playFromIndex(nextIdx);
     }
   }
 
@@ -1481,6 +1606,17 @@
     if (audio.currentTime > 3) {
       audio.currentTime = 0;
       updatePositionState();
+      return;
+    }
+
+    if (isShuffle && shuffleQueue.length === tracks.length) {
+      if (shufflePos > 0) {
+        shufflePos--;
+        playFromIndex(shuffleQueue[shufflePos]);
+      } else {
+        audio.currentTime = 0;
+        updatePositionState();
+      }
     } else {
       playFromIndex((currentIndex - 1 + tracks.length) % tracks.length);
     }
@@ -1504,17 +1640,16 @@
     const pct = audio.currentTime / audio.duration;
     updateWaveformProgress(pct);
     updateTimeDisplay();
-    updatePositionState();
   });
 
   function updatePositionState() {
     if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
-      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration) && audio.duration > 0) {
         try {
           navigator.mediaSession.setPositionState({
             duration: audio.duration,
             playbackRate: audio.playbackRate || 1,
-            position: Math.min(audio.currentTime || 0, audio.duration)
+            position: Math.min(Math.max(0, audio.currentTime || 0), audio.duration)
           });
         } catch (e) {}
       }
@@ -1551,6 +1686,7 @@
     closeModal();
     swapTrackInMemory(fromIdx, toIdx);
     await persistAllTrackOrders();
+    if (isShuffle) generateShuffleQueue(currentIndex);
     hasOrderChanges = false;
   }
 
@@ -1568,6 +1704,7 @@
 
     swapTrackInMemory(fromIdx, toIdx);
     await persistAllTrackOrders();
+    if (isShuffle) generateShuffleQueue(currentIndex);
     hasOrderChanges = false;
   }
 
@@ -1798,6 +1935,7 @@
     await loadProject(currentProject.id);
   }
 
+  // Controles de pantalla de bloqueo iOS (con botones de Anterior/Siguiente canción en vez de ±10s)
   function updateMediaSession(track) {
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -1817,8 +1955,18 @@
         syncPlayIcons();
         renderTracks();
       });
-      navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
-      navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
+
+      // IMPORTANTE EN iOS: Registrar previoustrack y nexttrack y poner seekbackward/seekforward en null
+      // obliga a iOS a mostrar los botones de cambiar canción (⏮ ⏭) en vez de los de ±10 segundos.
+      try { navigator.mediaSession.setActionHandler('seekbackward', null); } catch (e) {}
+      try { navigator.mediaSession.setActionHandler('seekforward', null); } catch (e) {}
+
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        prevTrack();
+      });
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        nextTrack();
+      });
 
       navigator.mediaSession.setActionHandler('seekto', (details) => {
         if (details.fastSeek && 'fastSeek' in audio) {
@@ -1829,20 +1977,6 @@
         if (audio.duration) {
           updateWaveformProgress(audio.currentTime / audio.duration);
         }
-        updateTimeDisplay();
-        updatePositionState();
-      });
-
-      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-        const skip = details.seekOffset || 10;
-        audio.currentTime = Math.max(0, audio.currentTime - skip);
-        updateTimeDisplay();
-        updatePositionState();
-      });
-
-      navigator.mediaSession.setActionHandler('seekforward', (details) => {
-        const skip = details.seekOffset || 10;
-        audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + skip);
         updateTimeDisplay();
         updatePositionState();
       });
